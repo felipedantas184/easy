@@ -14,21 +14,19 @@ interface AddToCartButtonProps {
     price: number;
   };
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function AddToCartButton({ product, variant, className }: AddToCartButtonProps) {
+export function AddToCartButton({ product, variant, className, style }: AddToCartButtonProps) {
   const { addItem, state } = useCart();
   const [added, setAdded] = useState(false);
 
   const handleAddToCart = () => {
     addItem(product, 1, variant);
     setAdded(true);
-    
-    // Reset do estado de "adicionado" após 2 segundos
     setTimeout(() => setAdded(false), 2000);
   };
 
-  // Verificar se o item já está no carrinho
   const isInCart = state.items.some(item =>
     item.product.id === product.id &&
     item.selectedVariant?.variantId === variant?.variantId &&
@@ -39,6 +37,7 @@ export function AddToCartButton({ product, variant, className }: AddToCartButton
     <Button
       onClick={handleAddToCart}
       className={`w-full ${className}`}
+      style={style} 
       disabled={added}
       variant={isInCart ? "secondary" : "default"}
     >

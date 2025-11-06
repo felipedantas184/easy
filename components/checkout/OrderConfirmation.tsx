@@ -6,6 +6,7 @@ import { orderService } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Check, Clock, Download } from 'lucide-react';
 import Link from 'next/link';
+import { PixPayment } from './PixPayment';
 
 interface OrderConfirmationProps {
   store: Store;
@@ -89,7 +90,7 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
       {/* Informações do Pedido */}
       <div className="bg-white rounded-lg border p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">Detalhes do Pedido</h2>
-        
+
         {/* Informações do Cliente */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
@@ -100,7 +101,7 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
               <p><strong>Telefone:</strong> {order.customerInfo.phone}</p>
             </div>
           </div>
-          
+
           {order.customerInfo.address && (
             <div>
               <h3 className="font-medium mb-2">Endereço de Entrega</h3>
@@ -150,27 +151,12 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
       </div>
 
       {/* Instruções de Pagamento PIX */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-        <div className="flex items-start space-x-3">
-          <Clock className="text-yellow-600 mt-1 flex-shrink-0" size={20} />
-          <div>
-            <h3 className="font-semibold text-yellow-800 mb-2">
-              Aguardando Pagamento PIX
-            </h3>
-            <p className="text-yellow-700 text-sm mb-3">
-              Seu pedido será confirmado após a identificação do pagamento.
-            </p>
-            <div className="bg-white p-4 rounded border">
-              <p className="text-sm font-medium mb-2">Chave PIX da Loja:</p>
-              <p className="text-lg font-mono bg-gray-100 p-2 rounded">
-                {store.contact.pixKey || 'pix@loja.com'}
-              </p>
-              <p className="text-xs text-gray-600 mt-2">
-                Envie o valor de <strong>{formatPrice(order.total)}</strong> para esta chave PIX
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="bg-white rounded-lg border p-6 mb-6">
+        <PixPayment
+          store={store}
+          amount={order.total}
+          orderId={order.id}
+        />
       </div>
 
       {/* Contato da Loja */}
@@ -183,7 +169,7 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
           {store.contact.whatsapp && (
             <p>
               <strong>WhatsApp:</strong>{' '}
-              <a 
+              <a
                 href={`https://wa.me/${store.contact.whatsapp}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -213,7 +199,7 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
             Continuar Comprando
           </Button>
         </Link>
-        
+
         <Button className="flex-1" style={{ backgroundColor: store.theme.primaryColor }}>
           <Download size={18} className="mr-2" />
           Salvar Comprovante

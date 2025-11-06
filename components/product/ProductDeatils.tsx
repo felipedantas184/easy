@@ -1,0 +1,302 @@
+'use client';
+import { useState } from 'react';
+import { Store } from '@/types/store';
+import { Product, ProductVariant, VariantOption } from '@/types/products';
+import { AddToCartButton } from '@/components/cart/AddToCartButton';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, Share, Heart, Truck, Shield, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+interface ProductDetailsProps {
+  store: Store;
+  product: Product;
+}
+
+export function ProductDetails({ store, product }: ProductDetailsProps) {
+  const router = useRouter();
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, VariantOption>>({});
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(price);
+  };
+
+  const handleVariantSelect = (variant: ProductVariant, option: VariantOption) => {
+    setSelectedVariants(prev => ({
+      ...prev,
+      [variant.id]: option.id
+    }));
+    
+    setSelectedOptions(prev => ({
+      ...prev,
+      [variant.id]: option
+    }));
+  };
+
+  const getSelectedVariantData = () => {
+    if (!product.hasVariants || Object.keys(selectedOptions).length === 0) {
+      return undefined;
+    }
+
+    const selectedOption = Object.values(selectedOptions)[0];
+    return {
+      variantId: Object.keys(selectedVariants)[0],
+      optionId: selectedOption.id,
+      optionName: selectedOption.name,
+      price: selectedOption.price,
+    };
+  };
+
+  const getCurrentPrice = () => {
+    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
+      const selectedOption = Object.values(selectedOptions)[0];
+      return selectedOption.price;
+    }
+    return product.price;
+  };
+
+  const getCurrentComparePrice = () => {
+    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
+      const selectedOption = Object.values(selectedOptions)[0];
+      return selectedOption.comparePrice;
+    }
+    return product.comparePrice;
+  };
+
+  const isVariantComplete = () => {
+    if (!product.hasVariants) return true;
+    return product.variants.every(variant => selectedVariants[variant.id]);
+  };
+
+  const currentPrice = getCurrentPrice();
+  const currentComparePrice = getCurrentComparePrice();
+  const hasDiscount = currentComparePrice && currentComparePrice > currentPrice;
+  const selectedVariantData = getSelectedVariantData();
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* Breadcrumb e Navegação */}
+      <div className="flex items-center space-x-2 text-sm text-gray-600 mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(`/${store.slug}`)}
+          className="flex items-center space-x-1"
+        >
+          <ArrowLeft size={16} />
+          <span>Voltar para a loja</span>
+        </Button>
+        <span>/</span>
+        <span>{product.category}</span>
+        <span>/</span>
+        <span className="text-gray-900 font-medium">{product.name}</span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* Galeria de Imagens */}
+        <div className="space-y-4">
+          {/* Imagem Principal */}
+          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+            <img
+              src={product.images[selectedImage] || '/images/placeholder-product.jpg'}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* Thumbnails */}
+          {product.images.length > 1 && (
+            <div className="grid grid-cols-4 gap-2">
+              {product.images.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedImage(index)}
+                  className={`aspect-square bg-gray-100 rounded-md overflow-hidden border-2 ${
+                    selectedImage === index 
+                      ? 'border-blue-500' 
+                      : 'border-transparent'
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${product.name} ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Informações do Produto */}
+        <div className="space-y-6">
+          {/* Categoria */}
+          <div className="text-sm text-gray-600">
+            {product.category}
+          </div>
+
+          {/* Nome do Produto */}
+          <h1 className="text-3xl font-bold text-gray-900">
+            {product.name}
+          </h1>
+
+          {/* Preço */}
+          <div className="space-y-2">
+            <div className="flex items-center space-x-3">
+              <span className="text-3xl font-bold text-gray-900">
+                {formatPrice(currentPrice)}
+              </span>
+              
+              {hasDiscount && (
+                <>
+                  <span className="text-xl text-gray-500 line-through">
+                    {formatPrice(currentComparePrice!)}
+                  </span>
+                  <span 
+                    className="px-2 py-1 text-sm font-semibold text-white rounded"
+                    style={{ backgroundColor: store.theme.primaryColor }}
+                  >
+                    {Math.round(((currentComparePrice! - currentPrice) / currentComparePrice!) * 100)}% OFF
+                  </span>
+                </>
+              )}
+            </div>
+            
+            {hasDiscount && (
+              <p className="text-sm text-green-600 font-medium">
+                Você economiza {formatPrice(currentComparePrice! - currentPrice)}
+              </p>
+            )}
+          </div>
+
+          {/* Descrição */}
+          <div className="prose max-w-none">
+            <p className="text-gray-700 leading-relaxed">
+              {product.description}
+            </p>
+          </div>
+
+          {/* Variações */}
+          {product.hasVariants && product.variants.length > 0 && (
+            <div className="space-y-4">
+              {product.variants.map((variant) => (
+                <div key={variant.id}>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    {variant.name}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {variant.options.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => handleVariantSelect(variant, option)}
+                        className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
+                          selectedVariants[variant.id] === option.id
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        {option.name}
+                        {option.price !== product.price && (
+                          <span className="ml-1 text-xs">
+                            ({formatPrice(option.price)})
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Ações */}
+          <div className="space-y-4">
+            <AddToCartButton
+              product={product}
+              variant={selectedVariantData}
+              className="text-lg py-3"
+              disabled={!isVariantComplete()}
+            />
+
+            {!isVariantComplete() && (
+              <p className="text-sm text-yellow-600">
+                Selecione todas as opções disponíveis
+              </p>
+            )}
+
+            {/* Ações Secundárias */}
+            <div className="flex space-x-4">
+              <Button variant="outline" className="flex-1">
+                <Heart size={18} className="mr-2" />
+                Favoritar
+              </Button>
+              <Button variant="outline" className="flex-1">
+                <Share size={18} className="mr-2" />
+                Compartilhar
+              </Button>
+            </div>
+          </div>
+
+          {/* Benefícios */}
+          <div className="border-t pt-6 space-y-4">
+            <div className="flex items-center space-x-3 text-sm text-gray-600">
+              <Truck size={20} />
+              <div>
+                <p className="font-medium text-gray-900">Frete Grátis</p>
+                <p>Para todo o Brasil</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3 text-sm text-gray-600">
+              <Shield size={20} />
+              <div>
+                <p className="font-medium text-gray-900">Compra Segura</p>
+                <p>Seus dados estão protegidos</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Informações Adicionais */}
+      <div className="mt-16 border-t pt-8">
+        <div className="max-w-3xl">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            Detalhes do Produto
+          </h2>
+          
+          <div className="prose max-w-none">
+            <p className="text-gray-700 leading-relaxed">
+              {product.description}
+            </p>
+            
+            {/* Informações adicionais podem ser adicionadas aqui */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Características</h3>
+                <ul className="space-y-1 text-gray-600">
+                  <li>• Produto de alta qualidade</li>
+                  <li>• Material durável</li>
+                  <li>• Design moderno</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Especificações</h3>
+                <ul className="space-y-1 text-gray-600">
+                  <li>• Garantia do vendedor</li>
+                  <li>• Entrega em todo Brasil</li>
+                  <li>• Atendimento personalizado</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -112,7 +112,7 @@ export function ProductTable({ products, onDelete, loading = false }: ProductTab
                       <div className="text-sm font-medium text-gray-900">
                         {product.name}
                       </div>
-                      <div className="text-sm text-gray-500 line-clamp-1">
+                      <div className="text-sm text-gray-500 line-clamp-1 w-full max-w-xs">
                         {product.description}
                       </div>
                     </div>
@@ -139,11 +139,10 @@ export function ProductTable({ products, onDelete, loading = false }: ProductTab
                 {/* Status */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
-                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      product.isActive
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${product.isActive
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
-                    }`}
+                      }`}
                   >
                     {product.isActive ? 'Ativo' : 'Inativo'}
                   </span>
@@ -162,13 +161,13 @@ export function ProductTable({ products, onDelete, loading = false }: ProductTab
                         <Eye size={16} />
                       </Button>
                     </Link>
-                    
+
                     <Link href={`/dashboard/products/${product.id}`}>
                       <Button variant="outline" size="sm">
                         <Edit size={16} />
                       </Button>
                     </Link>
-                    
+
                     <Button
                       variant="outline"
                       size="sm"

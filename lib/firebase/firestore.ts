@@ -9,12 +9,13 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  increment
 } from 'firebase/firestore';
 import { db } from './config';
 import { Store, CreateStoreData } from '@/types/store';
 import { DEFAULT_STORE_THEME } from '../utils/constants';
-import { Order, OrderStatus, PaymentStatus, Product } from '@/types';
+import { DiscountCoupon, Order, OrderStatus, PaymentStatus, Product } from '@/types';
 
 // Operações de Loja
 export const storeService = {
@@ -32,11 +33,16 @@ export const storeService = {
       },
       contact: {
         email: '',
+        pixKeys: [], 
       },
       settings: {
         allowPickup: true,
         requireCustomerAuth: false,
         maintenanceMode: false,
+        pixSettings: {
+          expirationTime: 30, // 30 minutos
+          allowMultipleKeys: true,
+        },
       },
       isActive: true,
       createdAt: serverTimestamp() as any,
@@ -329,5 +335,112 @@ export const orderService = {
   async updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus): Promise<void> {
     const docRef = doc(db, 'orders', orderId);
     await updateDoc(docRef, { paymentStatus });
+  },
+};
+
+export const discountService = {
+  // Criar novo cupom
+  async createCoupon(couponData: Omit<DiscountCoupon, 'id' | 'usedCount' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const coupon: Omit<DiscountCoupon, 'id'> = {
+      ...couponData,
+      usedCount: 0,
+      createdAt: serverTimestamp() as any,
+      updatedAt: serverTimestamp() as any,
+    };
+
+    const docRef = await addDoc(collection(db, 'discountCoupons'), coupon);
+    return docRef.id;
+  },
+
+  // Buscar cupom por ID
+  async getCoupon(couponId: string): Promise<DiscountCoupon | null> {
+    const docRef = doc(db, 'discountCoupons', couponId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return { 
+        id: docSnap.id, 
+        ...data,
+        validFrom: data.validFrom?.toDate() || new Date(),
+        validUntil: data.validUntil?.toDate() || new Date(),
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as DiscountCoupon;
+    }
+    return null;
+  },
+
+  // Buscar cupom por código e loja
+  async getCouponByCode(storeId: string, code: string): Promise<DiscountCoupon | null> {
+    const q = query(
+      collection(db, 'discountCoupons'), 
+      where('storeId', '==', storeId),
+      where('code', '==', code.toUpperCase()),
+      where('isActive', '==', true)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
+    }
+    
+    const doc = querySnapshot.docs[0];
+    const data = doc.data();
+    return { 
+      id: doc.id, 
+      ...data,
+      validFrom: data.validFrom?.toDate() || new Date(),
+      validUntil: data.validUntil?.toDate() || new Date(),
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    } as DiscountCoupon;
+  },
+
+  // Buscar cupons de uma loja
+  async getStoreCoupons(storeId: string): Promise<DiscountCoupon[]> {
+    const q = query(
+      collection(db, 'discountCoupons'), 
+      where('storeId', '==', storeId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        validFrom: data.validFrom?.toDate() || new Date(),
+        validUntil: data.validUntil?.toDate() || new Date(),
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as DiscountCoupon;
+    });
+  },
+
+  // Atualizar cupom
+  async updateCoupon(couponId: string, updates: Partial<DiscountCoupon>): Promise<void> {
+    const docRef = doc(db, 'discountCoupons', couponId);
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  // Incrementar uso do cupom
+  async incrementCouponUsage(couponId: string): Promise<void> {
+    const docRef = doc(db, 'discountCoupons', couponId);
+    await updateDoc(docRef, {
+      usedCount: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  // Deletar cupom
+  async deleteCoupon(couponId: string): Promise<void> {
+    const docRef = doc(db, 'discountCoupons', couponId);
+    await deleteDoc(docRef);
   },
 };

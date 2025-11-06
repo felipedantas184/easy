@@ -2,13 +2,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { 
-  Store, 
-  ShoppingCart, 
-  Package, 
-  BarChart3, 
+import {
+  Store,
+  ShoppingCart,
+  Package,
+  BarChart3,
   Settings,
-  LogOut 
+  LogOut,
+  Tag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -21,6 +22,7 @@ export function DashboardSidebar() {
     { href: '/dashboard/stores', icon: Store, label: 'Minhas Lojas' },
     { href: '/dashboard/products', icon: Package, label: 'Produtos' },
     { href: '/dashboard/orders', icon: ShoppingCart, label: 'Pedidos' },
+    { href: '/dashboard/coupons', icon: Tag, label: 'Cupons' }, // ✅ NOVO
     { href: '/dashboard/settings', icon: Settings, label: 'Configurações' },
   ];
 
@@ -65,16 +67,15 @@ export function DashboardSidebar() {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
-            
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active
+                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${active
                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 <Icon size={20} />
                 <span>{item.label}</span>

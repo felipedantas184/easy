@@ -1,5 +1,7 @@
 'use client';
-import { Product } from '@/types';
+import { DiscountValidator } from '@/lib/discount/discount-validator';
+import { discountService } from '@/lib/firebase/firestore';
+import { CartDiscount, Product } from '@/types';
 import { createContext, useContext, useReducer, useEffect } from 'react';
 
 export interface CartItem {
@@ -17,6 +19,7 @@ interface CartState {
   items: CartItem[];
   total: number;
   itemCount: number;
+  discount?: CartDiscount;
 }
 
 interface CartContextType {
@@ -27,6 +30,9 @@ interface CartContextType {
   clearCart: () => void;
   getItemCount: () => number;
   getTotalPrice: () => number;
+  applyDiscount: (couponCode: string, storeId: string) => Promise<{ success: boolean; message: string }>;
+  removeDiscount: () => void;
+  getFinalTotal: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -36,7 +42,9 @@ type CartAction =
   | { type: 'REMOVE_ITEM'; payload: { productId: string; variantId?: string } }
   | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number; variantId?: string } }
   | { type: 'CLEAR_CART' }
-  | { type: 'LOAD_CART'; payload: CartState };
+  | { type: 'LOAD_CART'; payload: CartState }
+  | { type: 'APPLY_DISCOUNT'; payload: CartDiscount } // ✅ NOVO
+  | { type: 'REMOVE_DISCOUNT' }; // ✅ NOVO
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
@@ -48,7 +56,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       );
 
       let newItems: CartItem[];
-      
+
       if (existingItemIndex > -1) {
         // Item já existe, atualizar quantidade
         newItems = state.items.map((item, index) =>
@@ -75,7 +83,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case 'UPDATE_QUANTITY': {
       const newItems = state.items.map(item =>
         item.product.id === action.payload.productId &&
-        item.selectedVariant?.variantId === action.payload.variantId
+          item.selectedVariant?.variantId === action.payload.variantId
           ? { ...item, quantity: action.payload.quantity }
           : item
       ).filter(item => item.quantity > 0); // Remove se quantidade for 0
@@ -88,6 +96,18 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 
     case 'LOAD_CART':
       return action.payload;
+
+    case 'APPLY_DISCOUNT': {
+      return {
+        ...state,
+        discount: action.payload,
+      };
+    }
+
+    case 'REMOVE_DISCOUNT': {
+      const { discount, ...stateWithoutDiscount } = state;
+      return stateWithoutDiscount;
+    }
 
     default:
       return state;
@@ -165,6 +185,65 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const getItemCount = () => state.itemCount;
   const getTotalPrice = () => state.total;
 
+  const applyDiscount: CartContextType['applyDiscount'] = async (couponCode, storeId) => {
+    console.log('🟦 applyDiscount() chamado');
+    console.log('➡️ Código do cupom:', couponCode);
+    console.log('➡️ Store ID recebido:', storeId);
+
+    try {
+      const coupon = await discountService.getCouponByCode(storeId, couponCode);
+      console.log('📦 Resultado da busca de cupom:', coupon);
+
+      if (!coupon) {
+        console.warn('⚠️ Cupom não encontrado no banco de dados.');
+        return { success: false, message: 'Cupom não encontrado' };
+      }
+
+      const validation = DiscountValidator.validateCoupon(coupon, state.items, state.total);
+      console.log('🧮 Resultado da validação:', validation);
+
+      if (!validation.isValid) {
+        console.warn('⚠️ Cupom inválido:', validation.error);
+        return { success: false, message: validation.error || 'Cupom inválido' };
+      }
+
+      const discountAmount = DiscountValidator.calculateDiscount(coupon, state.total);
+      console.log('💰 Valor calculado do desconto:', discountAmount);
+
+      const cartDiscount: CartDiscount = {
+        couponCode: coupon.code,
+        discountAmount,
+        discountType: coupon.discountType,
+        applied: true,
+      };
+
+      dispatch({
+        type: 'APPLY_DISCOUNT',
+        payload: cartDiscount,
+      });
+
+      console.log('✅ Cupom aplicado com sucesso!');
+
+      return {
+        success: true,
+        message: `Cupom aplicado! Desconto de ${DiscountValidator.formatCouponDescription(coupon)}`
+      };
+
+    } catch (error) {
+      console.error('🔥 Erro ao aplicar cupom:', error);
+      return { success: false, message: 'Erro ao aplicar cupom' };
+    }
+  };
+
+  const removeDiscount: CartContextType['removeDiscount'] = () => {
+    dispatch({ type: 'REMOVE_DISCOUNT' });
+  };
+
+  const getFinalTotal: CartContextType['getFinalTotal'] = () => {
+    const discountAmount = state.discount?.discountAmount || 0;
+    return Math.max(0, state.total - discountAmount);
+  };
+
   const value: CartContextType = {
     state,
     addItem,
@@ -173,6 +252,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     clearCart,
     getItemCount,
     getTotalPrice,
+    applyDiscount,
+    removeDiscount,
+    getFinalTotal,
   };
 
   return (

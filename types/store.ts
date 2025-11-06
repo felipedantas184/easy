@@ -27,7 +27,16 @@ export interface StoreContact {
   whatsapp?: string;
   instagram?: string;
   address?: string;
-  pixKey?: string;
+  pixKeys?: PixKey[];
+}
+
+export interface PixKey {
+  id: string;
+  key: string;
+  type: 'email' | 'phone' | 'cpf' | 'cnpj' | 'random';
+  isActive: boolean;
+  description?: string;
+  createdAt: Date;
 }
 
 export interface StoreSettings {
@@ -35,6 +44,13 @@ export interface StoreSettings {
   requireCustomerAuth: boolean;
   orderConfirmationMessage?: string;
   maintenanceMode: boolean;
+  pixSettings: PixSettings;
+}
+
+export interface PixSettings {
+  expirationTime: number;
+  allowMultipleKeys: boolean;
+  defaultKeyId?: string;
 }
 
 export interface CreateStoreData {

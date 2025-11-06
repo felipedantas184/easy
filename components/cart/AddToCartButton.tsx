@@ -1,9 +1,9 @@
 'use client';
 import { useState } from 'react';
+import { Product } from '@/types/products';
 import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Check } from 'lucide-react';
-import { Product } from '@/types';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -15,18 +15,21 @@ interface AddToCartButtonProps {
   };
   className?: string;
   style?: React.CSSProperties;
+  disabled?: boolean;
 }
 
-export function AddToCartButton({ product, variant, className, style }: AddToCartButtonProps) {
+export function AddToCartButton({ product, variant, className, disabled }: AddToCartButtonProps) {
   const { addItem, state } = useCart();
   const [added, setAdded] = useState(false);
 
   const handleAddToCart = () => {
     addItem(product, 1, variant);
     setAdded(true);
+    
     setTimeout(() => setAdded(false), 2000);
   };
 
+  // Verificar se o item já está no carrinho
   const isInCart = state.items.some(item =>
     item.product.id === product.id &&
     item.selectedVariant?.variantId === variant?.variantId &&
@@ -37,8 +40,7 @@ export function AddToCartButton({ product, variant, className, style }: AddToCar
     <Button
       onClick={handleAddToCart}
       className={`w-full ${className}`}
-      style={style} 
-      disabled={added}
+      disabled={disabled || added}
       variant={isInCart ? "secondary" : "default"}
     >
       {added || isInCart ? (

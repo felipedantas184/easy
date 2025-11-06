@@ -318,10 +318,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
                     <span>Processando...</span>
                   </div>
                 ) : (
-                  `Finalizar Pedido - ${new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(state.total)}`
+                  `Finalizar Pedido`
                 )}
               </Button>
 
@@ -338,7 +335,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
 
         {/* Order Summary */}
         <div className="lg:col-span-1">
-          <OrderSummary />
+          <OrderSummary storeId={store.id} />
         </div>
       </div>
     </div>

@@ -33,7 +33,7 @@ export const storeService = {
       },
       contact: {
         email: '',
-        pixKeys: [], 
+        pixKeys: [],
       },
       settings: {
         allowPickup: true,
@@ -152,7 +152,6 @@ export const storeService = {
 };
 
 export const productService = {
-  // Criar novo produto
   async createProduct(productData: Omit<Product, 'id'>, storeId: string): Promise<string> {
     const product: Omit<Product, 'id'> = {
       ...productData,
@@ -166,7 +165,6 @@ export const productService = {
     return docRef.id;
   },
 
-  // Buscar produto por ID
   async getProduct(productId: string): Promise<Product | null> {
     const docRef = doc(db, 'products', productId);
     const docSnap = await getDoc(docRef);
@@ -176,6 +174,7 @@ export const productService = {
       return {
         id: docSnap.id,
         ...data,
+        // ✅ REMOVIDOS: conversões de basePrice, totalStock, etc.
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
       } as Product;
@@ -183,7 +182,6 @@ export const productService = {
     return null;
   },
 
-  // Buscar produtos de uma loja
   async getStoreProducts(storeId: string): Promise<Product[]> {
     const q = query(
       collection(db, 'products'),
@@ -204,7 +202,6 @@ export const productService = {
     });
   },
 
-  // Atualizar produto
   async updateProduct(productId: string, updates: Partial<Product>): Promise<void> {
     const docRef = doc(db, 'products', productId);
     await updateDoc(docRef, {
@@ -213,7 +210,6 @@ export const productService = {
     });
   },
 
-  // Deletar produto (soft delete)
   async deleteProduct(productId: string): Promise<void> {
     const docRef = doc(db, 'products', productId);
     await updateDoc(docRef, {
@@ -222,7 +218,6 @@ export const productService = {
     });
   },
 
-  // Buscar produtos por categoria
   async getProductsByCategory(storeId: string, category: string): Promise<Product[]> {
     const q = query(
       collection(db, 'products'),
@@ -356,11 +351,11 @@ export const discountService = {
   async getCoupon(couponId: string): Promise<DiscountCoupon | null> {
     const docRef = doc(db, 'discountCoupons', couponId);
     const docSnap = await getDoc(docRef);
-    
+
     if (docSnap.exists()) {
       const data = docSnap.data();
-      return { 
-        id: docSnap.id, 
+      return {
+        id: docSnap.id,
         ...data,
         validFrom: data.validFrom?.toDate() || new Date(),
         validUntil: data.validUntil?.toDate() || new Date(),
@@ -374,22 +369,22 @@ export const discountService = {
   // Buscar cupom por código e loja
   async getCouponByCode(storeId: string, code: string): Promise<DiscountCoupon | null> {
     const q = query(
-      collection(db, 'discountCoupons'), 
+      collection(db, 'discountCoupons'),
       where('storeId', '==', storeId),
       where('code', '==', code.toUpperCase()),
       where('isActive', '==', true)
     );
-    
+
     const querySnapshot = await getDocs(q);
-    
+
     if (querySnapshot.empty) {
       return null;
     }
-    
+
     const doc = querySnapshot.docs[0];
     const data = doc.data();
-    return { 
-      id: doc.id, 
+    return {
+      id: doc.id,
       ...data,
       validFrom: data.validFrom?.toDate() || new Date(),
       validUntil: data.validUntil?.toDate() || new Date(),
@@ -401,11 +396,11 @@ export const discountService = {
   // Buscar cupons de uma loja
   async getStoreCoupons(storeId: string): Promise<DiscountCoupon[]> {
     const q = query(
-      collection(db, 'discountCoupons'), 
+      collection(db, 'discountCoupons'),
       where('storeId', '==', storeId),
       orderBy('createdAt', 'desc')
     );
-    
+
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();

@@ -1,8 +1,9 @@
 'use client';
 import { DiscountValidator } from '@/lib/discount/discount-validator';
-import { discountService } from '@/lib/firebase/firestore';
+import { discountService, productService } from '@/lib/firebase/firestore';
 import { CartDiscount, Product } from '@/types';
 import { createContext, useContext, useReducer, useEffect } from 'react';
+import { getProductPrice, getProductTotalStock } from '@/lib/utils/product-helpers';
 
 export interface CartItem {
   product: Product;
@@ -24,15 +25,16 @@ interface CartState {
 
 interface CartContextType {
   state: CartState;
-  addItem: (product: Product, quantity?: number, selectedVariant?: CartItem['selectedVariant']) => void;
+  addItem: (product: Product, quantity?: number, selectedVariant?: CartItem['selectedVariant']) => Promise<{ success: boolean; message: string }>;
   removeItem: (productId: string, variantId?: string) => void;
-  updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => Promise<{ success: boolean; message: string }>;
   clearCart: () => void;
   getItemCount: () => number;
   getTotalPrice: () => number;
   applyDiscount: (couponCode: string, storeId: string) => Promise<{ success: boolean; message: string }>;
   removeDiscount: () => void;
   getFinalTotal: () => number;
+  checkStock: (productId: string, variantId?: string, quantity?: number) => Promise<{ available: boolean; currentStock: number }>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -43,8 +45,8 @@ type CartAction =
   | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number; variantId?: string } }
   | { type: 'CLEAR_CART' }
   | { type: 'LOAD_CART'; payload: CartState }
-  | { type: 'APPLY_DISCOUNT'; payload: CartDiscount } // ✅ NOVO
-  | { type: 'REMOVE_DISCOUNT' }; // ✅ NOVO
+  | { type: 'APPLY_DISCOUNT'; payload: CartDiscount }
+  | { type: 'REMOVE_DISCOUNT' };
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
@@ -58,14 +60,12 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       let newItems: CartItem[];
 
       if (existingItemIndex > -1) {
-        // Item já existe, atualizar quantidade
         newItems = state.items.map((item, index) =>
           index === existingItemIndex
             ? { ...item, quantity: item.quantity + (action.payload.quantity || 1) }
             : item
         );
       } else {
-        // Novo item
         newItems = [...state.items, action.payload];
       }
 
@@ -86,8 +86,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
           item.selectedVariant?.variantId === action.payload.variantId
           ? { ...item, quantity: action.payload.quantity }
           : item
-      ).filter(item => item.quantity > 0); // Remove se quantidade for 0
-
+      ).filter(item => item.quantity > 0);
       return calculateTotals(newItems);
     }
 
@@ -116,7 +115,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 
 function calculateTotals(items: CartItem[]): CartState {
   const total = items.reduce((sum, item) => {
-    const price = item.selectedVariant?.price || item.product.price;
+    // ✅ Usar preço da variação ou helper do produto
+    const price = item.selectedVariant?.price || getProductPrice(item.product);
     return sum + (price * item.quantity);
   }, 0);
 
@@ -125,13 +125,11 @@ function calculateTotals(items: CartItem[]): CartState {
   return { items, total, itemCount };
 }
 
-// Persistência no localStorage
 const CART_STORAGE_KEY = 'easy-platform-cart';
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0, itemCount: 0 });
 
-  // Carregar carrinho do localStorage
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
@@ -144,7 +142,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Salvar carrinho no localStorage
   useEffect(() => {
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
@@ -153,7 +150,67 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state]);
 
-  const addItem: CartContextType['addItem'] = (product, quantity = 1, selectedVariant) => {
+  const checkStock = async (productId: string, variantId?: string, quantity: number = 1): Promise<{ available: boolean; currentStock: number }> => {
+    try {
+      const product = await productService.getProduct(productId);
+      if (!product) {
+        return { available: false, currentStock: 0 };
+      }
+
+      if (variantId && product.hasVariants) {
+        for (const variant of product.variants) {
+          const option = variant.options.find(opt => opt.id === variantId);
+          if (option) {
+            const currentStock = option.stock;
+            const cartQuantity = state.items.find(item => 
+              item.product.id === productId && 
+              item.selectedVariant?.optionId === variantId
+            )?.quantity || 0;
+            
+            const availableStock = currentStock - cartQuantity;
+            return { 
+              available: availableStock >= quantity, 
+              currentStock: availableStock 
+            };
+          }
+        }
+      } else {
+        const currentStock = getProductTotalStock(product);
+        const cartQuantity = state.items.find(item => 
+          item.product.id === productId && 
+          !item.selectedVariant
+        )?.quantity || 0;
+        
+        const availableStock = currentStock - cartQuantity;
+        return { 
+          available: availableStock >= quantity, 
+          currentStock: availableStock 
+        };
+      }
+
+      return { available: false, currentStock: 0 };
+    } catch (error) {
+      console.error('Erro ao verificar estoque:', error);
+      return { available: false, currentStock: 0 };
+    }
+  };
+
+  const addItem: CartContextType['addItem'] = async (product, quantity = 1, selectedVariant) => {
+    const stockCheck = await checkStock(
+      product.id, 
+      selectedVariant?.optionId, 
+      quantity
+    );
+
+    if (!stockCheck.available) {
+      return { 
+        success: false, 
+        message: stockCheck.currentStock === 0 
+          ? 'Produto esgotado' 
+          : `Apenas ${stockCheck.currentStock} unidades disponíveis` 
+      };
+    }
+
     dispatch({
       type: 'ADD_ITEM',
       payload: {
@@ -162,19 +219,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         selectedVariant,
       },
     });
+
+    return { success: true, message: 'Produto adicionado ao carrinho' };
+  };
+
+  const updateQuantity: CartContextType['updateQuantity'] = async (productId, quantity, variantId) => {
+    if (quantity <= 0) {
+      removeItem(productId, variantId);
+      return { success: true, message: 'Item removido' };
+    }
+
+    const stockCheck = await checkStock(productId, variantId, quantity);
+    if (!stockCheck.available) {
+      return { 
+        success: false, 
+        message: `Estoque insuficiente. Apenas ${stockCheck.currentStock} unidades disponíveis` 
+      };
+    }
+
+    dispatch({
+      type: 'UPDATE_QUANTITY',
+      payload: { productId, quantity, variantId },
+    });
+
+    return { success: true, message: 'Quantidade atualizada' };
   };
 
   const removeItem: CartContextType['removeItem'] = (productId, variantId) => {
     dispatch({
       type: 'REMOVE_ITEM',
       payload: { productId, variantId },
-    });
-  };
-
-  const updateQuantity: CartContextType['updateQuantity'] = (productId, quantity, variantId) => {
-    dispatch({
-      type: 'UPDATE_QUANTITY',
-      payload: { productId, quantity, variantId },
     });
   };
 
@@ -186,29 +260,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const getTotalPrice = () => state.total;
 
   const applyDiscount: CartContextType['applyDiscount'] = async (couponCode, storeId) => {
-    console.log('🟦 applyDiscount() chamado');
-    console.log('➡️ Código do cupom:', couponCode);
-    console.log('➡️ Store ID recebido:', storeId);
-
     try {
       const coupon = await discountService.getCouponByCode(storeId, couponCode);
-      console.log('📦 Resultado da busca de cupom:', coupon);
-
+      
       if (!coupon) {
-        console.warn('⚠️ Cupom não encontrado no banco de dados.');
         return { success: false, message: 'Cupom não encontrado' };
       }
 
       const validation = DiscountValidator.validateCoupon(coupon, state.items, state.total);
-      console.log('🧮 Resultado da validação:', validation);
-
+      
       if (!validation.isValid) {
-        console.warn('⚠️ Cupom inválido:', validation.error);
         return { success: false, message: validation.error || 'Cupom inválido' };
       }
 
       const discountAmount = DiscountValidator.calculateDiscount(coupon, state.total);
-      console.log('💰 Valor calculado do desconto:', discountAmount);
 
       const cartDiscount: CartDiscount = {
         couponCode: coupon.code,
@@ -222,15 +287,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         payload: cartDiscount,
       });
 
-      console.log('✅ Cupom aplicado com sucesso!');
-
       return {
         success: true,
         message: `Cupom aplicado! Desconto de ${DiscountValidator.formatCouponDescription(coupon)}`
       };
 
     } catch (error) {
-      console.error('🔥 Erro ao aplicar cupom:', error);
+      console.error('Erro ao aplicar cupom:', error);
       return { success: false, message: 'Erro ao aplicar cupom' };
     }
   };
@@ -255,6 +318,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     applyDiscount,
     removeDiscount,
     getFinalTotal,
+    checkStock,
   };
 
   return (

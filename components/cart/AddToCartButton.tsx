@@ -1,9 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { Product } from '@/types/products';
-import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Check } from 'lucide-react';
+import { useCart } from '@/contexts/cart-context';
+import { Product } from '@/types/products';
+import { ShoppingCart, Check, Loader2 } from 'lucide-react';
+import { getProductTotalStock } from '@/lib/utils/product-helpers'; // ✅ IMPORTAR HELPER
 
 interface AddToCartButtonProps {
   product: Product;
@@ -14,43 +15,67 @@ interface AddToCartButtonProps {
     price: number;
   };
   className?: string;
-  style?: React.CSSProperties;
   disabled?: boolean;
+  style?: React.CSSProperties;
 }
 
-export function AddToCartButton({ product, variant, className, disabled }: AddToCartButtonProps) {
-  const { addItem, state } = useCart();
-  const [added, setAdded] = useState(false);
+export function AddToCartButton({ 
+  product, 
+  variant, 
+  className = '', 
+  disabled = false,
+  style 
+}: AddToCartButtonProps) {
+  const { addItem } = useCart();
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const handleAddToCart = () => {
-    addItem(product, 1, variant);
-    setAdded(true);
+  const handleAddToCart = async () => {
+    if (disabled) return;
+
+    setLoading(true);
     
-    setTimeout(() => setAdded(false), 2000);
+    const result = await addItem(product, 1, variant);
+    
+    if (result.success) {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } else {
+      console.error('Erro ao adicionar ao carrinho:', result.message);
+    }
+    
+    setLoading(false);
   };
 
-  // Verificar se o item já está no carrinho
-  const isInCart = state.items.some(item =>
-    item.product.id === product.id &&
-    item.selectedVariant?.variantId === variant?.variantId &&
-    item.selectedVariant?.optionId === variant?.optionId
-  );
+  // ✅ CORREÇÃO: Usar helper para obter estoque total
+  const totalStock = getProductTotalStock(product);
+  const isOutOfStock = totalStock === 0;
 
   return (
     <Button
       onClick={handleAddToCart}
-      className={`w-full ${className}`}
-      disabled={disabled || added}
-      variant={isInCart ? "secondary" : "default"}
+      disabled={disabled || loading || isOutOfStock}
+      className={`relative overflow-hidden ${className}`}
+      style={style}
     >
-      {added || isInCart ? (
+      {loading ? (
         <>
-          <Check size={18} className="mr-2" />
-          {isInCart ? 'No Carrinho' : 'Adicionado!'}
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Adicionando...
+        </>
+      ) : success ? (
+        <>
+          <Check className="w-4 h-4 mr-2" />
+          Adicionado!
+        </>
+      ) : isOutOfStock ? (
+        <>
+          <ShoppingCart className="w-4 h-4 mr-2" />
+          Esgotado
         </>
       ) : (
         <>
-          <ShoppingCart size={18} className="mr-2" />
+          <ShoppingCart className="w-4 h-4 mr-2" />
           Adicionar ao Carrinho
         </>
       )}

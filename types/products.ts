@@ -3,30 +3,47 @@ export interface Product {
   storeId: string;
   name: string;
   description: string;
-  price: number;
-  comparePrice?: number; // Preço original para promoções
-  images: string[];
+  images: ProductImage[];
   category: string;
   isActive: boolean;
   hasVariants: boolean;
   variants: ProductVariant[];
+  
+  // REMOVIDOS: basePrice, comparePrice, totalStock, trackInventory, lowStockAlert
+  // Preço e estoque agora ficam NAS VARIAÇÕES
+  
+  weight?: number;
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+  };
+  
+  seo?: {
+    title: string;
+    description: string;
+  };
+  
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface ProductVariant {
   id: string;
-  name: string; // Ex: "Tamanho", "Cor"
+  name: string;
   options: VariantOption[];
 }
 
 export interface VariantOption {
   id: string;
-  name: string; // Ex: "P", "M", "G" ou "Azul", "Vermelho"
-  price: number;
+  name: string;
+  price: number; // ✅ FONTE ÚNICA do preço
   comparePrice?: number;
-  stock: number;
-  sku?: string;
+  stock: number; // ✅ FONTE ÚNICA do estoque
+  sku: string; // ✅ Agora obrigatório
+  barcode?: string;
+  weight?: number;
+  isActive: boolean;
 }
 
 export interface ProductImage {
@@ -34,4 +51,5 @@ export interface ProductImage {
   url: string;
   alt: string;
   isPrimary: boolean;
+  order: number;
 }

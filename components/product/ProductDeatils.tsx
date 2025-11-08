@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Store } from '@/types/store';
 import { Product, ProductVariant, VariantOption } from '@/types/products';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Share, Heart, Truck, Shield, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, Share, Heart, Truck, Shield, ArrowLeft, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { getProductPrice, getProductComparePrice, getProductTotalStock } from '@/lib/utils/product-helpers';
 
 interface ProductDetailsProps {
   store: Store;
@@ -17,6 +18,12 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [selectedOptions, setSelectedOptions] = useState<Record<string, VariantOption>>({});
+
+  // ✅ Usar helpers para obter preço e estoque
+  const productPrice = getProductPrice(product);
+  const productComparePrice = getProductComparePrice(product);
+  const totalStock = getProductTotalStock(product);
+  const hasDiscount = productComparePrice && productComparePrice > productPrice;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -51,20 +58,22 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     };
   };
 
+  // ✅ Obter preço atual baseado na seleção
   const getCurrentPrice = () => {
     if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
       const selectedOption = Object.values(selectedOptions)[0];
       return selectedOption.price;
     }
-    return product.price;
+    return productPrice;
   };
 
+  // ✅ Obter preço promocional atual
   const getCurrentComparePrice = () => {
     if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
       const selectedOption = Object.values(selectedOptions)[0];
       return selectedOption.comparePrice;
     }
-    return product.comparePrice;
+    return productComparePrice;
   };
 
   const isVariantComplete = () => {
@@ -72,10 +81,35 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     return product.variants.every(variant => selectedVariants[variant.id]);
   };
 
+  // ✅ Obter estoque atual baseado na seleção
+  const getCurrentStock = () => {
+    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
+      const selectedOption = Object.values(selectedOptions)[0];
+      return selectedOption.stock;
+    }
+    return totalStock;
+  };
+
   const currentPrice = getCurrentPrice();
   const currentComparePrice = getCurrentComparePrice();
-  const hasDiscount = currentComparePrice && currentComparePrice > currentPrice;
+  const currentStock = getCurrentStock();
   const selectedVariantData = getSelectedVariantData();
+
+  // ✅ Verificar se produto está disponível
+  const isProductAvailable = currentStock > 0;
+
+  // ✅ Obter texto de estoque
+  const getStockText = () => {
+    if (currentStock === 0) {
+      return <span className="text-red-600 font-medium">Esgotado</span>;
+    }
+    
+    if (currentStock <= 5) {
+      return <span className="text-orange-600 font-medium">Apenas {currentStock} em estoque</span>;
+    }
+    
+    return <span className="text-green-600 font-medium">{currentStock} em estoque</span>;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -102,8 +136,8 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
           {/* Imagem Principal */}
           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
             <img
-              src={product.images[selectedImage] || '/images/placeholder-product.jpg'}
-              alt={product.name}
+              src={product.images[selectedImage]?.url || '/images/placeholder-product.jpg'}
+              alt={product.images[selectedImage]?.alt || product.name}
               className="w-full h-full object-cover"
             />
           </div>
@@ -113,7 +147,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             <div className="grid grid-cols-4 gap-2">
               {product.images.map((image, index) => (
                 <button
-                  key={index}
+                  key={image.id}
                   onClick={() => setSelectedImage(index)}
                   className={`aspect-square bg-gray-100 rounded-md overflow-hidden border-2 ${
                     selectedImage === index 
@@ -122,8 +156,8 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                   }`}
                 >
                   <img
-                    src={image}
-                    alt={`${product.name} ${index + 1}`}
+                    src={image.url}
+                    alt={image.alt || `${product.name} ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
                 </button>
@@ -151,24 +185,24 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                 {formatPrice(currentPrice)}
               </span>
               
-              {hasDiscount && (
+              {hasDiscount && currentComparePrice && currentComparePrice > currentPrice && (
                 <>
                   <span className="text-xl text-gray-500 line-through">
-                    {formatPrice(currentComparePrice!)}
+                    {formatPrice(currentComparePrice)}
                   </span>
                   <span 
                     className="px-2 py-1 text-sm font-semibold text-white rounded"
                     style={{ backgroundColor: store.theme.primaryColor }}
                   >
-                    {Math.round(((currentComparePrice! - currentPrice) / currentComparePrice!) * 100)}% OFF
+                    {Math.round(((currentComparePrice - currentPrice) / currentComparePrice) * 100)}% OFF
                   </span>
                 </>
               )}
             </div>
             
-            {hasDiscount && (
+            {hasDiscount && currentComparePrice && currentComparePrice > currentPrice && (
               <p className="text-sm text-green-600 font-medium">
-                Você economiza {formatPrice(currentComparePrice! - currentPrice)}
+                Você economiza {formatPrice(currentComparePrice - currentPrice)}
               </p>
             )}
           </div>
@@ -178,6 +212,14 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             <p className="text-gray-700 leading-relaxed">
               {product.description}
             </p>
+          </div>
+
+          {/* Display de Estoque */}
+          <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+            <Package size={18} className="text-gray-600" />
+            <div className="text-sm">
+              {getStockText()}
+            </div>
           </div>
 
           {/* Variações */}
@@ -197,13 +239,17 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                           selectedVariants[variant.id] === option.id
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
                             : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                        }`}
+                        } ${!option.isActive || option.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={!option.isActive || option.stock === 0}
                       >
                         {option.name}
-                        {option.price !== product.price && (
+                        {option.price !== productPrice && (
                           <span className="ml-1 text-xs">
                             ({formatPrice(option.price)})
                           </span>
+                        )}
+                        {option.stock === 0 && (
+                          <span className="ml-1 text-xs text-red-600">(Esgotado)</span>
                         )}
                       </button>
                     ))}
@@ -219,12 +265,18 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
               product={product}
               variant={selectedVariantData}
               className="text-lg py-3"
-              disabled={!isVariantComplete()}
+              disabled={!isVariantComplete() || !isProductAvailable}
             />
 
             {!isVariantComplete() && (
               <p className="text-sm text-yellow-600">
                 Selecione todas as opções disponíveis
+              </p>
+            )}
+
+            {!isProductAvailable && (
+              <p className="text-sm text-red-600">
+                Produto esgotado
               </p>
             )}
 
@@ -273,27 +325,6 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             <p className="text-gray-700 leading-relaxed">
               {product.description}
             </p>
-            
-            {/* Informações adicionais podem ser adicionadas aqui */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Características</h3>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• Produto de alta qualidade</li>
-                  <li>• Material durável</li>
-                  <li>• Design moderno</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Especificações</h3>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• Garantia do vendedor</li>
-                  <li>• Entrega em todo Brasil</li>
-                  <li>• Atendimento personalizado</li>
-                </ul>
-              </div>
-            </div>
           </div>
         </div>
       </div>

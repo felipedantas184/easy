@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { OrderSummary } from '@/components/checkout/OrderSummary';
 import { orderService } from '@/lib/firebase/firestore';
 import { useRouter } from 'next/navigation';
+import { getProductPrice } from '@/lib/utils/product-helpers';
 
 interface CheckoutFormProps {
   store: Store;
@@ -78,7 +79,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
             price: item.selectedVariant.price,
           } : undefined,
           quantity: item.quantity,
-          price: item.selectedVariant?.price || item.product.price,
+          price: item.selectedVariant?.price || getProductPrice(item.product),
         })),
         status: 'pending' as const,
         paymentMethod: 'pix' as const,
@@ -135,8 +136,8 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
         <div className="flex items-center space-x-4">
           <div className={`flex items-center ${currentStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${currentStep >= 1
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-gray-300'
+              ? 'bg-blue-600 border-blue-600 text-white'
+              : 'border-gray-300'
               }`}>
               1
             </div>
@@ -147,8 +148,8 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
 
           <div className={`flex items-center ${currentStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${currentStep >= 2
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-gray-300'
+              ? 'bg-blue-600 border-blue-600 text-white'
+              : 'border-gray-300'
               }`}>
               2
             </div>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { X, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { useStore } from '@/contexts/store-context';
 import Link from 'next/link';
+import { getProductPrice } from '@/lib/utils/product-helpers';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      
+
       {/* Sidebar */}
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-xl">
         <div className="flex flex-col h-full">
@@ -57,30 +58,30 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
             ) : (
               <div className="space-y-4">
                 {state.items.map((item, index) => {
-                  const itemPrice = item.selectedVariant?.price || item.product.price;
+                  const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
                   const itemTotal = itemPrice * item.quantity;
-                  
+
                   return (
                     <div key={index} className="flex space-x-3 border rounded-lg p-3">
                       {/* Product Image */}
                       <img
-                        src={item.product.images?.[0] || '/images/placeholder-product.jpg'}
+                        src={item.product.images?.[0]?.url || '/images/placeholder-product.jpg'}
                         alt={item.product.name}
                         className="w-16 h-16 object-cover rounded"
                       />
-                      
+
                       {/* Product Info */}
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-sm text-gray-900 truncate">
                           {item.product.name}
                         </h4>
-                        
+
                         {item.selectedVariant && (
                           <p className="text-xs text-gray-600">
                             {item.selectedVariant.optionName}
                           </p>
                         )}
-                        
+
                         <p className="text-sm font-semibold text-gray-900">
                           {formatPrice(itemPrice)}
                         </p>
@@ -91,7 +92,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => updateQuantity(
-                              item.product.id, 
+                              item.product.id,
                               item.quantity - 1,
                               item.selectedVariant?.variantId
                             )}
@@ -99,23 +100,23 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           >
                             <Minus size={14} />
                           </Button>
-                          
+
                           <span className="text-sm font-medium w-8 text-center">
                             {item.quantity}
                           </span>
-                          
+
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => updateQuantity(
-                              item.product.id, 
+                              item.product.id,
                               item.quantity + 1,
                               item.selectedVariant?.variantId
                             )}
                           >
                             <Plus size={14} />
                           </Button>
-                          
+
                           <Button
                             variant="ghost"
                             size="sm"
@@ -148,8 +149,8 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
               {/* Actions */}
               <div className="space-y-2">
                 <Link href={`/${store?.slug}/checkout`} className="block" onClick={onClose}>
-                  <Button 
-                    className="w-full" 
+                  <Button
+                    className="w-full"
                     size="lg"
                     style={{
                       backgroundColor: store?.theme.primaryColor,
@@ -159,10 +160,10 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                     Finalizar Compra
                   </Button>
                 </Link>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
+
+                <Button
+                  variant="outline"
+                  className="w-full"
                   onClick={clearCart}
                 >
                   Limpar Carrinho

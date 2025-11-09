@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Eye, MoreVertical } from 'lucide-react';
 import Link from 'next/link';
 import { Product } from '@/types';
+import { getProductPrice, getProductComparePrice, hasActivePromotion } from '@/lib/utils/product-helpers'; // ✅ IMPORTAR HELPERS
 
 interface ProductTableProps {
   products: Product[];
@@ -96,90 +97,102 @@ export function ProductTable({ products, onDelete, loading = false }: ProductTab
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {products.map((product) => (
-              <tr key={product.id} className="hover:bg-gray-50">
-                {/* Produto */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10">
-                      <img
-                        className="h-10 w-10 rounded-lg object-cover"
-                        src={product.images[0] || '/images/placeholder-product.jpg'}
-                        alt={product.name}
-                      />
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {product.name}
+            {products.map((product) => {
+              // ✅ USAR HELPERS para obter preços
+              const productPrice = getProductPrice(product);
+              const productComparePrice = getProductComparePrice(product);
+              const hasPromotion = hasActivePromotion(product);
+              
+              return (
+                <tr key={product.id} className="hover:bg-gray-50">
+                  {/* Produto */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <img
+                          className="h-10 w-10 rounded-lg object-cover"
+                          src={product.images[0]?.url || '/images/placeholder-product.jpg'}
+                          alt={product.images[0]?.alt || product.name}
+                        />
                       </div>
-                      <div className="text-sm text-gray-500 line-clamp-1 w-full max-w-xs">
-                        {product.description}
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {product.name}
+                        </div>
+                        <div className="text-sm text-gray-500 line-clamp-1 w-full max-w-xs">
+                          {product.description}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Categoria */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{product.category}</div>
-                </td>
+                  {/* Categoria */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{product.category}</div>
+                  </td>
 
-                {/* Preço */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {formatPrice(product.price)}
-                  </div>
-                  {product.comparePrice && product.comparePrice > product.price && (
-                    <div className="text-sm text-gray-500 line-through">
-                      {formatPrice(product.comparePrice)}
+                  {/* Preço */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {formatPrice(productPrice)}
                     </div>
-                  )}
-                </td>
+                    {hasPromotion && productComparePrice && (
+                      <div className="text-sm text-gray-500 line-through">
+                        {formatPrice(productComparePrice)}
+                      </div>
+                    )}
+                  </td>
 
-                {/* Status */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${product.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                      }`}
-                  >
-                    {product.isActive ? 'Ativo' : 'Inativo'}
-                  </span>
-                  {product.hasVariants && (
-                    <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">
-                      Variações
-                    </span>
-                  )}
-                </td>
-
-                {/* Ações */}
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex items-center space-x-2">
-                    <Link href={`/${product.storeId}/products/${product.id}`} target="_blank">
-                      <Button variant="outline" size="sm">
-                        <Eye size={16} />
-                      </Button>
-                    </Link>
-
-                    <Link href={`/dashboard/products/${product.id}`}>
-                      <Button variant="outline" size="sm">
-                        <Edit size={16} />
-                      </Button>
-                    </Link>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(product.id)}
-                      disabled={deletingId === product.id}
+                  {/* Status */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${product.isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                        }`}
                     >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {product.isActive ? 'Ativo' : 'Inativo'}
+                    </span>
+                    {product.hasVariants && (
+                      <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">
+                        Variações
+                      </span>
+                    )}
+                    {hasPromotion && (
+                      <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-800 rounded-full">
+                        Promoção
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Ações */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center space-x-2">
+                      <Link href={`/${product.storeId}/products/${product.id}`} target="_blank">
+                        <Button variant="outline" size="sm">
+                          <Eye size={16} />
+                        </Button>
+                      </Link>
+
+                      <Link href={`/dashboard/products/${product.id}`}>
+                        <Button variant="outline" size="sm">
+                          <Edit size={16} />
+                        </Button>
+                      </Link>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(product.id)}
+                        disabled={deletingId === product.id}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -8,13 +8,13 @@ import { Store } from '@/types/store';
 import Link from 'next/link';
 import { Plus, Package } from 'lucide-react';
 import { useProducts } from '@/hook/use-products';
+import { hasActivePromotion } from '@/lib/utils/product-helpers'; // ✅ IMPORTAR HELPER
 
 export default function ProductsPage() {
   const { user } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   
-  // Carregar produtos da loja selecionada
   const { 
     products, 
     loading, 
@@ -140,7 +140,8 @@ export default function ProductsPage() {
             </div>
             <div className="bg-white rounded-lg border p-4">
               <div className="text-2xl font-bold text-gray-900">
-                {products.filter(p => p.comparePrice && p.comparePrice > p.price).length}
+                {/* ✅ CORREÇÃO: Usar helper para verificar promoções */}
+                {products.filter(p => hasActivePromotion(p)).length}
               </div>
               <div className="text-sm text-gray-600">Em Promoção</div>
             </div>

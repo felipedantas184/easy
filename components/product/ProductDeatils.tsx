@@ -6,7 +6,7 @@ import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Share, Heart, Truck, Shield, ArrowLeft, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getProductPrice, getProductComparePrice, getProductTotalStock } from '@/lib/utils/product-helpers';
+import { getProductPrice, getProductComparePrice, getProductTotalStock, getDiscountPercentage } from '@/lib/utils/product-helpers';
 
 interface ProductDetailsProps {
   store: Store;
@@ -24,6 +24,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
   const productComparePrice = getProductComparePrice(product);
   const totalStock = getProductTotalStock(product);
   const hasDiscount = productComparePrice && productComparePrice > productPrice;
+  const discountPercentage = hasDiscount ? getDiscountPercentage(productPrice, productComparePrice) : 0;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -76,11 +77,6 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     return productComparePrice;
   };
 
-  const isVariantComplete = () => {
-    if (!product.hasVariants) return true;
-    return product.variants.every(variant => selectedVariants[variant.id]);
-  };
-
   // ✅ Obter estoque atual baseado na seleção
   const getCurrentStock = () => {
     if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
@@ -90,10 +86,18 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     return totalStock;
   };
 
+  const isVariantComplete = () => {
+    if (!product.hasVariants) return true;
+    return product.variants.every(variant => selectedVariants[variant.id]);
+  };
+
   const currentPrice = getCurrentPrice();
   const currentComparePrice = getCurrentComparePrice();
   const currentStock = getCurrentStock();
   const selectedVariantData = getSelectedVariantData();
+  const currentDiscountPercentage = currentComparePrice && currentComparePrice > currentPrice 
+    ? getDiscountPercentage(currentPrice, currentComparePrice)
+    : 0;
 
   // ✅ Verificar se produto está disponível
   const isProductAvailable = currentStock > 0;
@@ -110,6 +114,9 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     
     return <span className="text-green-600 font-medium">{currentStock} em estoque</span>;
   };
+
+  // ✅ Verificar se há promoção ativa para a seleção atual
+  const hasActivePromotion = currentComparePrice && currentComparePrice > currentPrice;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -185,24 +192,24 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                 {formatPrice(currentPrice)}
               </span>
               
-              {hasDiscount && currentComparePrice && currentComparePrice > currentPrice && (
+              {hasActivePromotion && (
                 <>
                   <span className="text-xl text-gray-500 line-through">
-                    {formatPrice(currentComparePrice)}
+                    {formatPrice(currentComparePrice!)}
                   </span>
                   <span 
                     className="px-2 py-1 text-sm font-semibold text-white rounded"
                     style={{ backgroundColor: store.theme.primaryColor }}
                   >
-                    {Math.round(((currentComparePrice - currentPrice) / currentComparePrice) * 100)}% OFF
+                    {currentDiscountPercentage}% OFF
                   </span>
                 </>
               )}
             </div>
             
-            {hasDiscount && currentComparePrice && currentComparePrice > currentPrice && (
+            {hasActivePromotion && (
               <p className="text-sm text-green-600 font-medium">
-                Você economiza {formatPrice(currentComparePrice - currentPrice)}
+                Você economiza {formatPrice(currentComparePrice! - currentPrice)}
               </p>
             )}
           </div>
@@ -231,28 +238,39 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                     {variant.name}
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {variant.options.map((option) => (
-                      <button
-                        key={option.id}
-                        onClick={() => handleVariantSelect(variant, option)}
-                        className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
-                          selectedVariants[variant.id] === option.id
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                        } ${!option.isActive || option.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={!option.isActive || option.stock === 0}
-                      >
-                        {option.name}
-                        {option.price !== productPrice && (
-                          <span className="ml-1 text-xs">
-                            ({formatPrice(option.price)})
-                          </span>
-                        )}
-                        {option.stock === 0 && (
-                          <span className="ml-1 text-xs text-red-600">(Esgotado)</span>
-                        )}
-                      </button>
-                    ))}
+                    {variant.options.map((option) => {
+                      const optionHasPromotion = option.comparePrice && option.comparePrice > option.price;
+                      const optionDiscount = optionHasPromotion 
+                        ? getDiscountPercentage(option.price, option.comparePrice!)
+                        : 0;
+                      
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => handleVariantSelect(variant, option)}
+                          className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
+                            selectedVariants[variant.id] === option.id
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                          } ${!option.isActive || option.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={!option.isActive || option.stock === 0}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span>{option.name}</span>
+                            {option.price !== productPrice && (
+                              <span className="text-xs mt-1">
+                                {formatPrice(option.price)}
+                                {optionHasPromotion && (
+                                  <span className="text-green-600 ml-1">
+                                    (-{optionDiscount}%)
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

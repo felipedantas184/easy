@@ -26,10 +26,10 @@ export function ProductGrid({ storeId }: ProductGridProps) {
         
         console.log('Buscando produtos para loja:', storeId);
         
-        // ✅ BUSCAR PRODUTOS REAIS DO FIREBASE
+        // ✅ Buscar produtos reais do Firebase (compatível com nova estrutura)
         const storeProducts = await productService.getStoreProducts(storeId);
         
-        console.log('Produtos encontrados:', storeProducts);
+        console.log('Produtos encontrados:', storeProducts.length);
         
         setProducts(storeProducts);
       } catch (err) {
@@ -42,6 +42,9 @@ export function ProductGrid({ storeId }: ProductGridProps) {
 
     loadProducts();
   }, [storeId]);
+
+  // ... (resto do código mantido igual - loading, error, empty states)
+  // O ProductCard já está atualizado para usar a nova estrutura
 
   if (loading) {
     return (

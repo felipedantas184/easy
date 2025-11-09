@@ -4,7 +4,7 @@ import { useStore } from '@/contexts/store-context';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import Link from 'next/link';
 import { Package } from 'lucide-react';
-import { getProductPrice, getProductComparePrice, getProductTotalStock } from '@/lib/utils/product-helpers';
+import { getProductPrice, getProductComparePrice, getProductTotalStock, getDiscountPercentage } from '@/lib/utils/product-helpers';
 
 interface ProductCardProps {
   product: Product;
@@ -17,12 +17,12 @@ export function ProductCard({ product }: ProductCardProps) {
   const productPrice = getProductPrice(product);
   const productComparePrice = getProductComparePrice(product);
   const totalStock = getProductTotalStock(product);
+  const hasDiscount = productComparePrice && productComparePrice > productPrice;
+  const discountPercentage = hasDiscount ? getDiscountPercentage(productPrice, productComparePrice) : 0;
   
   const mainImage = product.images && product.images.length > 0 
     ? product.images[0].url 
     : '/images/placeholder-product.jpg';
-  
-  const hasDiscount = productComparePrice && productComparePrice > productPrice;
 
   // ✅ Verificar status de estoque
   const getStockStatus = () => {
@@ -55,6 +55,16 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       )}
 
+      {/* Badge de Desconto */}
+      {hasDiscount && (
+        <div 
+          className="absolute top-3 right-3 z-10 px-2 py-1 text-xs font-semibold text-white rounded"
+          style={{ backgroundColor: store?.theme.primaryColor }}
+        >
+          {discountPercentage}% OFF
+        </div>
+      )}
+
       {/* Product Image with Link */}
       <Link href={`/${store?.slug}/products/${product.id}`}>
         <div className={`aspect-square relative overflow-hidden rounded-t-lg cursor-pointer ${
@@ -68,15 +78,6 @@ export function ProductCard({ product }: ProductCardProps) {
               (e.target as HTMLImageElement).src = '/images/placeholder-product.jpg';
             }}
           />
-          
-          {hasDiscount && (
-            <div 
-              className="absolute top-3 right-3 px-2 py-1 text-xs font-semibold text-white rounded"
-              style={{ backgroundColor: store?.theme.primaryColor }}
-            >
-              {Math.round(((productComparePrice - productPrice) / productComparePrice) * 100)}% OFF
-            </div>
-          )}
         </div>
       </Link>
 

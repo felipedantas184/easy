@@ -1,6 +1,7 @@
 'use client';
 import { useCart } from '@/contexts/cart-context';
 import { DiscountCoupon } from '@/components/cart/DiscountCoupon';
+import { getProductPrice } from '@/lib/utils/product-helpers';
 
 interface OrderSummaryProps {
   storeId: string;
@@ -21,18 +22,18 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
   return (
     <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
       <h3 className="text-lg font-semibold mb-4">Resumo do Pedido</h3>
-      
+
       {/* Cupom de Desconto */}
       <div className="mb-4">
         <DiscountCoupon storeId={storeId} />
       </div>
-      
+
       {/* Itens do Carrinho */}
       <div className="space-y-3 mb-4">
         {state.items.map((item, index) => {
-          const itemPrice = item.selectedVariant?.price || item.product.price;
+          const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
           const itemTotal = itemPrice * item.quantity;
-          
+
           return (
             <div key={index} className="flex justify-between items-start">
               <div className="flex-1 min-w-0">
@@ -62,7 +63,7 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
           <span className="text-gray-600">Subtotal</span>
           <span className="text-gray-900">{formatPrice(state.total)}</span>
         </div>
-        
+
         {/* Desconto Aplicado */}
         {state.discount?.applied && (
           <div className="flex justify-between text-sm text-green-600">
@@ -70,12 +71,12 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
             <span>- {formatPrice(state.discount.discountAmount)}</span>
           </div>
         )}
-        
+
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Frete</span>
           <span className="text-gray-900">Grátis</span>
         </div>
-        
+
         <div className="flex justify-between text-lg font-semibold border-t pt-2">
           <span>Total</span>
           <span>{formatPrice(finalTotal)}</span>

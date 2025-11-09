@@ -1,10 +1,11 @@
+// components/cart/AddToCartButton.tsx - VERSÃO FINAL
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/cart-context';
 import { Product } from '@/types/products';
-import { ShoppingCart, Check, Loader2 } from 'lucide-react';
-import { getProductTotalStock } from '@/lib/utils/product-helpers'; // ✅ IMPORTAR HELPER
+import { ShoppingCart, Check, Loader2, Plus } from 'lucide-react';
+import { getProductTotalStock } from '@/lib/utils/product-helpers';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -17,6 +18,9 @@ interface AddToCartButtonProps {
   className?: string;
   disabled?: boolean;
   style?: React.CSSProperties;
+  onAddToCart?: () => void;
+  showQuickView?: boolean;
+  onShowQuickView?: () => void;
 }
 
 export function AddToCartButton({ 
@@ -24,14 +28,28 @@ export function AddToCartButton({
   variant, 
   className = '', 
   disabled = false,
-  style 
+  style,
+  onAddToCart,
+  showQuickView = false,
+  onShowQuickView
 }: AddToCartButtonProps) {
   const { addItem } = useCart();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const totalStock = getProductTotalStock(product);
+  const isOutOfStock = totalStock === 0;
+  const hasVariants = product.hasVariants && product.variants && product.variants.length > 0;
+  
+  const shouldShowQuickView = showQuickView && hasVariants && !variant;
+
   const handleAddToCart = async () => {
-    if (disabled) return;
+    if (disabled || isOutOfStock) return;
+
+    if (shouldShowQuickView && onShowQuickView) {
+      onShowQuickView();
+      return;
+    }
 
     setLoading(true);
     
@@ -40,45 +58,38 @@ export function AddToCartButton({
     if (result.success) {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
-    } else {
-      console.error('Erro ao adicionar ao carrinho:', result.message);
+      onAddToCart?.();
     }
     
     setLoading(false);
   };
 
-  // ✅ CORREÇÃO: Usar helper para obter estoque total
-  const totalStock = getProductTotalStock(product);
-  const isOutOfStock = totalStock === 0;
+  const getButtonText = () => {
+    if (isOutOfStock) return 'Esgotado';
+    if (shouldShowQuickView) return 'Comprar Agora';
+    if (loading) return 'Adicionando...';
+    if (success) return 'Adicionado!';
+    return 'Adicionar ao Carrinho';
+  };
+
+  const getButtonIcon = () => {
+    if (loading) return <Loader2 className="w-4 h-4 mr-2 animate-spin" />;
+    if (success) return <Check className="w-4 h-4 mr-2" />;
+    if (shouldShowQuickView) return <Plus className="w-4 h-4 mr-2" />;
+    return <ShoppingCart className="w-4 h-4 mr-2" />;
+  };
 
   return (
     <Button
       onClick={handleAddToCart}
       disabled={disabled || loading || isOutOfStock}
-      className={`relative overflow-hidden ${className}`}
+      className={`relative overflow-hidden transition-all duration-300 ${
+        success ? 'scale-105 bg-green-600 hover:bg-green-700' : ''
+      } ${className}`}
       style={style}
     >
-      {loading ? (
-        <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Adicionando...
-        </>
-      ) : success ? (
-        <>
-          <Check className="w-4 h-4 mr-2" />
-          Adicionado!
-        </>
-      ) : isOutOfStock ? (
-        <>
-          <ShoppingCart className="w-4 h-4 mr-2" />
-          Esgotado
-        </>
-      ) : (
-        <>
-          <ShoppingCart className="w-4 h-4 mr-2" />
-          Adicionar ao Carrinho
-        </>
-      )}
+      {getButtonIcon()}
+      {getButtonText()}
     </Button>
   );
 }

@@ -1,4 +1,4 @@
-// components/product/QuickViewModal.tsx - VERSÃO MOBILE-FIRST
+// components/product/QuickViewModal.tsx - VERSÃO CORRIGIDA
 'use client';
 import { useState, useEffect } from 'react';
 import { Product, ProductVariant, VariantOption } from '@/types/products';
@@ -7,10 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { X, ShoppingCart, Package, Zap, Users, Shield, Truck, Star, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '@/contexts/store-context';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
-import { 
-  getProductPrice, 
-  getProductComparePrice, 
-  getProductTotalStock, 
+import {
+  getProductPrice,
+  getProductComparePrice,
+  getProductTotalStock,
   getDiscountPercentage
 } from '@/lib/utils/product-helpers';
 
@@ -64,11 +64,80 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
     };
   }, [isOpen, onClose]);
 
-  const productPrice = getProductPrice(product);
-  const productComparePrice = getProductComparePrice(product);
-  const totalStock = getProductTotalStock(product);
-  const hasDiscount = productComparePrice && productComparePrice > productPrice;
-  const discountPercentage = hasDiscount ? getDiscountPercentage(productPrice, productComparePrice) : 0;
+  // ✅ CORREÇÃO: Função com lógica para lidar com preços invertidos
+  const getCurrentVariantData = () => {
+    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
+      const selectedOption = Object.values(selectedOptions)[0];
+
+      // ✅ CORREÇÃO: Lógica para detectar e corrigir preços invertidos
+      const price = selectedOption.price;
+      const comparePrice = selectedOption.comparePrice;
+
+      let actualPrice = price;
+      let actualComparePrice = comparePrice;
+      let hasActualDiscount = false;
+
+      // Se comparePrice existe E é diferente de price
+      if (comparePrice && comparePrice !== price) {
+        // ✅ CORREÇÃO: Determinar qual é o preço real e qual é o de comparação
+        if (comparePrice > price) {
+          // comparePrice é maior = é o preço original, price é o com desconto
+          actualPrice = price;
+          actualComparePrice = comparePrice;
+          hasActualDiscount = true;
+        } else if (comparePrice < price) {
+          // comparePrice é menor = está invertido, price é o preço original
+          actualPrice = comparePrice;
+          actualComparePrice = price;
+          hasActualDiscount = true;
+        }
+      }
+
+      return {
+        price: actualPrice,
+        comparePrice: actualComparePrice,
+        hasDiscount: hasActualDiscount,
+        discountPercentage: hasActualDiscount
+          ? getDiscountPercentage(actualPrice, actualComparePrice!)
+          : 0,
+        economy: hasActualDiscount
+          ? actualComparePrice! - actualPrice
+          : 0
+      };
+    }
+
+    // Para produtos sem variações
+    const basePrice = getProductPrice(product);
+    const baseComparePrice = getProductComparePrice(product);
+
+    let actualPrice = basePrice;
+    let actualComparePrice = baseComparePrice;
+    let hasActualDiscount = false;
+
+    if (baseComparePrice && baseComparePrice !== basePrice) {
+      if (baseComparePrice > basePrice) {
+        actualPrice = basePrice;
+        actualComparePrice = baseComparePrice;
+        hasActualDiscount = true;
+      } else if (baseComparePrice < basePrice) {
+        actualPrice = baseComparePrice;
+        actualComparePrice = basePrice;
+        hasActualDiscount = true;
+      }
+    }
+
+    return {
+      price: actualPrice,
+      comparePrice: actualComparePrice,
+      hasDiscount: hasActualDiscount,
+      discountPercentage: hasActualDiscount
+        ? getDiscountPercentage(actualPrice, actualComparePrice!)
+        : 0,
+      economy: hasActualDiscount
+        ? actualComparePrice! - actualPrice
+        : 0
+    };
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -82,7 +151,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
       ...prev,
       [variant.id]: option.id
     }));
-    
+
     setSelectedOptions(prev => ({
       ...prev,
       [variant.id]: option
@@ -102,28 +171,12 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
     };
   };
 
-  const getCurrentPrice = () => {
-    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
-      const selectedOption = Object.values(selectedOptions)[0];
-      return selectedOption.price;
-    }
-    return productPrice;
-  };
-
-  const getCurrentComparePrice = () => {
-    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
-      const selectedOption = Object.values(selectedOptions)[0];
-      return selectedOption.comparePrice;
-    }
-    return productComparePrice;
-  };
-
   const getCurrentStock = () => {
     if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
       const selectedOption = Object.values(selectedOptions)[0];
       return selectedOption.stock;
     }
-    return totalStock;
+    return getProductTotalStock(product);
   };
 
   const isVariantComplete = () => {
@@ -131,14 +184,16 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
     return product.variants.every(variant => selectedVariants[variant.id]);
   };
 
-  const currentPrice = getCurrentPrice();
-  const currentComparePrice = getCurrentComparePrice();
+  // ✅ CORREÇÃO: Usar a função corrigida
+  const currentVariantData = getCurrentVariantData();
+  const currentPrice = currentVariantData.price;
+  const currentComparePrice = currentVariantData.comparePrice;
+  const hasActivePromotion = currentVariantData.hasDiscount;
+  const currentDiscountPercentage = currentVariantData.discountPercentage;
+  const currentEconomy = currentVariantData.economy;
+
   const currentStock = getCurrentStock();
   const selectedVariantData = getSelectedVariantData();
-  const currentDiscountPercentage = currentComparePrice && currentComparePrice > currentPrice 
-    ? getDiscountPercentage(currentPrice, currentComparePrice)
-    : 0;
-
   const isProductAvailable = currentStock > 0;
 
   // Gatilhos mentais
@@ -160,34 +215,36 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
   return (
     <div className="fixed inset-0 z-50">
       {/* Backdrop mobile-friendly */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
       />
-      
+
       {/* Modal Container */}
       <div className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-4">
-        <div 
+        <div
           className="bg-white w-full max-h-[90vh] sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl shadow-2xl transform transition-transform duration-300 sm:scale-95 sm:hover:scale-100 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Sticky */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-20 sm:relative sm:p-6">
             <h2 className="text-lg font-bold text-gray-900 sm:text-xl">Escolher Opções</h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="icon" // Usando size="icon" se o seu Button aceitar, senão manter "sm"
               onClick={onClose}
-              className="rounded-full w-8 h-8 sm:w-10 sm:h-10 hover:bg-gray-100"
+              // w-10 h-10 é um tamanho excelente para UX em botões de fechar (40px)
+              className="rounded-full w-10 h-10 hover:bg-gray-100 transition-colors"
             >
-              <X size={18} className="sm:w-5 sm:h-5" />
+              {/* Aumentado o size do ícone para 24, dando mais presença visual */}
+              <X size={24} className="w-6 h-6 text-gray-500" />
             </Button>
           </div>
 
           {/* Content com Scroll */}
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-6">
-              
+
               {/* Seção de Imagem - Mobile Full Width */}
               <div className="relative">
                 {/* Imagem Principal com Controles Mobile */}
@@ -222,11 +279,23 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                       {product.images.map((_, index) => (
                         <div
                           key={index}
-                          className={`w-2 h-2 rounded-full ${
-                            index === selectedImage ? 'bg-white' : 'bg-white/50'
-                          }`}
+                          className={`w-2 h-2 rounded-full ${index === selectedImage ? 'bg-white' : 'bg-white/50'
+                            }`}
                         />
                       ))}
+                    </div>
+                  )}
+
+                  {/* ✅ CORREÇÃO: Badge de desconto com lógica corrigida */}
+                  {hasActivePromotion && (
+                    <div
+                      className="absolute top-4 left-4 px-3 py-1.5 text-white font-bold rounded-full shadow-lg text-sm"
+                      style={{
+                        backgroundColor: store?.theme.primaryColor,
+                        background: `linear-gradient(135deg, ${store?.theme.primaryColor} 0%, ${store?.theme.secondaryColor} 100%)`
+                      }}
+                    >
+                      {currentDiscountPercentage}% OFF
                     </div>
                   )}
                 </div>
@@ -238,11 +307,10 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                       <button
                         key={image.id}
                         onClick={() => setSelectedImage(index)}
-                        className={`aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-all ${
-                          selectedImage === index 
-                            ? 'border-blue-500 ring-2 ring-blue-200' 
+                        className={`aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index
+                            ? 'border-blue-500 ring-2 ring-blue-200'
                             : 'border-transparent hover:border-gray-300'
-                        }`}
+                          }`}
                       >
                         <img
                           src={image.url}
@@ -304,19 +372,20 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                   </div>
                 </div>
 
-                {/* Preço */}
+                {/* ✅ CORREÇÃO: Preço com lógica corrigida */}
                 <div className="space-y-2">
                   <div className="flex items-center space-x-3">
                     <span className="text-2xl font-bold text-gray-900 sm:text-3xl">
                       {formatPrice(currentPrice)}
                     </span>
-                    
-                    {currentComparePrice && currentComparePrice > currentPrice && (
+
+                    {/* ✅ CORREÇÃO: Agora mostra preço original riscado corretamente */}
+                    {hasActivePromotion && currentComparePrice && (
                       <>
                         <span className="text-xl text-gray-500 line-through">
                           {formatPrice(currentComparePrice)}
                         </span>
-                        <Badge variant="default" className="text-xs sm:text-sm" style={{ 
+                        <Badge variant="default" className="text-xs sm:text-sm" style={{
                           backgroundColor: store?.theme.primaryColor,
                           color: 'white'
                         }}>
@@ -325,10 +394,11 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                       </>
                     )}
                   </div>
-                  
-                  {currentComparePrice && currentComparePrice > currentPrice && (
+
+                  {/* ✅ CORREÇÃO: Agora mostra economia corretamente */}
+                  {hasActivePromotion && currentEconomy > 0 && (
                     <p className="text-green-600 font-medium text-sm sm:text-base">
-                      💰 Economize {formatPrice(currentComparePrice - currentPrice)}
+                      💰 Economize {formatPrice(currentEconomy)}
                     </p>
                   )}
                 </div>
@@ -351,7 +421,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                   </div>
                 </div>
 
-                {/* Variações */}
+                {/* ✅ CORREÇÃO: Variações com lógica corrigida */}
                 {product.hasVariants && product.variants.length > 0 && (
                   <div className="space-y-4">
                     {product.variants.map((variant) => (
@@ -361,38 +431,65 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                         </label>
                         <div className="flex flex-wrap gap-2">
                           {variant.options.map((option) => {
-                            const optionHasPromotion = option.comparePrice && option.comparePrice > option.price;
-                            const optionDiscount = optionHasPromotion 
-                              ? getDiscountPercentage(option.price, option.comparePrice!)
+                            // ✅ CORREÇÃO: Lógica invertida para as opções também
+                            const price = option.price;
+                            const comparePrice = option.comparePrice;
+
+                            let actualPrice = price;
+                            let actualComparePrice = comparePrice;
+                            let optionHasPromotion = false;
+
+                            if (comparePrice && comparePrice !== price) {
+                              if (comparePrice > price) {
+                                actualPrice = price;
+                                actualComparePrice = comparePrice;
+                                optionHasPromotion = true;
+                              } else if (comparePrice < price) {
+                                actualPrice = comparePrice;
+                                actualComparePrice = price;
+                                optionHasPromotion = true;
+                              }
+                            }
+
+                            const optionDiscount = optionHasPromotion
+                              ? getDiscountPercentage(actualPrice, actualComparePrice!)
                               : 0;
-                            
+
                             return (
                               <button
                                 key={option.id}
                                 onClick={() => handleVariantSelect(variant, option)}
-                                className={`px-3 py-2 border rounded-lg text-xs font-medium transition-all min-w-[70px] sm:min-w-[80px] sm:px-4 sm:py-3 sm:text-sm ${
-                                  selectedVariants[variant.id] === option.id
+                                className={`px-3 py-2 border rounded-lg text-xs font-medium transition-all min-w-[70px] sm:min-w-[80px] sm:px-4 sm:py-3 sm:text-sm ${selectedVariants[variant.id] === option.id
                                     ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm ring-2 ring-blue-200'
                                     : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow-sm'
-                                } ${
-                                  !option.isActive || option.stock === 0 
-                                    ? 'opacity-50 cursor-not-allowed grayscale' 
+                                  } ${!option.isActive || option.stock === 0
+                                    ? 'opacity-50 cursor-not-allowed grayscale'
                                     : ''
-                                }`}
+                                  }`}
                                 disabled={!option.isActive || option.stock === 0}
                               >
                                 <div className="flex flex-col items-center space-y-1">
                                   <span className="font-medium">{option.name}</span>
-                                  {option.price !== productPrice && (
-                                    <span className="font-semibold">
-                                      {formatPrice(option.price)}
-                                      {optionHasPromotion && (
-                                        <span className="text-green-600 ml-1">
-                                          (-{optionDiscount}%)
-                                        </span>
-                                      )}
+                                  <div className="flex flex-col items-center space-y-0">
+                                    <span className="font-semibold text-sm">
+                                      {formatPrice(actualPrice)}
                                     </span>
-                                  )}
+                                    {optionHasPromotion && (
+                                      <div className="flex flex-col items-center space-y-0">
+                                        <span className="text-xs text-gray-500 line-through">
+                                          {formatPrice(actualComparePrice!)}
+                                        </span>
+                                        <span
+                                          className="text-xs font-bold text-white px-1 py-0.5 rounded-full mt-1"
+                                          style={{
+                                            backgroundColor: store?.theme.primaryColor,
+                                          }}
+                                        >
+                                          -{optionDiscount}%
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </button>
                             );
@@ -418,9 +515,16 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                     </p>
                   )}
 
+                  {/* Mensagem para selecionar variação */}
+                  {product.hasVariants && Object.keys(selectedOptions).length === 0 && (
+                    <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 text-center">
+                      ⚡ Selecione uma opção para ver o preço específico
+                    </div>
+                  )}
+
                   {/* Link para página completa */}
                   <div className="text-center pt-2">
-                    <a 
+                    <a
                       href={`/${store?.slug}/products/${product.id}`}
                       className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
                       onClick={onClose}
@@ -440,7 +544,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                       <p className="text-xs text-gray-600">Para todo Brasil</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
                     <Shield size={18} className="text-green-600 flex-shrink-0" />
                     <div className="min-w-0">

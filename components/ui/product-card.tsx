@@ -15,7 +15,9 @@ import {
   getDiscountPercentage,
   getPriceRange,
   getMainImage,
-  hasAnyPromotion
+  hasAnyPromotion,
+  hasProductDiscount,
+  getMaxDiscountPercentage
 } from '@/lib/utils/product-helpers';
 
 interface ProductCardProps {
@@ -32,11 +34,15 @@ export function ProductCard({ product }: ProductCardProps) {
   const productPrice = getProductPrice(product);
   const productComparePrice = getProductComparePrice(product);
   const totalStock = getProductTotalStock(product);
-  const hasDiscount = productComparePrice && productComparePrice > productPrice;
-  const discountPercentage = hasDiscount ? getDiscountPercentage(productPrice, productComparePrice) : 0;
+  const hasDiscount = hasProductDiscount(product);
+  const discountPercentage = hasDiscount ? getDiscountPercentage(
+    productPrice,
+    productComparePrice || productPrice
+  ) : 0;
   const hasVariants = product.hasVariants && product.variants && product.variants.length > 0;
   const priceRange = hasVariants ? getPriceRange(product) : null;
   const mainImage = getMainImage(product);
+  const maxDiscountPercentage = hasVariants ? getMaxDiscountPercentage(product) : discountPercentage;
 
   // ✅ Gatilhos mentais simulados
   const viewingCount = Math.floor(Math.random() * 8) + 3;
@@ -115,14 +121,17 @@ export function ProductCard({ product }: ProductCardProps) {
               </Badge>
             )}
 
-            {/* Badge de Desconto */}
+            {/* Badge de Desconto - CORRIGIDO */}
             {hasDiscount && (
-              <Badge variant="default" className="shadow-lg" style={{
-                backgroundColor: store?.theme.primaryColor,
-                color: 'white'
-              }}>
-                {discountPercentage}% OFF
-              </Badge>
+              <div
+                className="absolute top-3 right-3 z-10 px-2 py-1 text-xs font-bold text-white rounded shadow-lg"
+                style={{ backgroundColor: store?.theme.primaryColor }}
+              >
+                {hasVariants && maxDiscountPercentage > discountPercentage
+                  ? `Até ${maxDiscountPercentage}% OFF`
+                  : `${discountPercentage}% OFF`
+                }
+              </div>
             )}
           </div>
 
@@ -182,40 +191,35 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
 
-          {/* Preço */}
-          <div className="space-y-1">
-            {hasVariants && priceRange ? (
-              <div className="space-y-1">
-                <div className="text-xs text-gray-600">A partir de</div>
-                <div className="flex items-baseline space-x-2">
-                  <span className="text-xl font-bold text-gray-900">
+          {/* Price - Display Inteligente CORRIGIDO */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              {hasVariants && priceRange ? (
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-600">A partir de</span>
+                  <span className="text-lg font-bold text-gray-900">
                     {formatPrice(priceRange.min)}
                   </span>
                   {priceRange.min !== priceRange.max && (
-                    <span className="text-sm text-gray-500">
-                      até {formatPrice(priceRange.max)}
+                    <span className="text-xs text-gray-500">
+                      Até {formatPrice(priceRange.max)}
                     </span>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-baseline space-x-2">
-                <span className="text-xl font-bold text-gray-900">
-                  {formatPrice(productPrice)}
-                </span>
-                {hasDiscount && (
-                  <span className="text-sm text-gray-500 line-through">
-                    {formatPrice(productComparePrice!)}
+              ) : (
+                <>
+                  <span className="text-lg font-bold text-gray-900">
+                    {formatPrice(productPrice)}
                   </span>
-                )}
-              </div>
-            )}
 
-            {hasDiscount && !hasVariants && (
-              <div className="text-sm text-green-600 font-medium">
-                Economize {formatPrice(productComparePrice! - productPrice)}
-              </div>
-            )}
+                  {hasDiscount && productComparePrice && (
+                    <span className="text-sm text-gray-500 line-through">
+                      {formatPrice(productComparePrice)}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Ações Duplas */}

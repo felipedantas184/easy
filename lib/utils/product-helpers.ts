@@ -2,30 +2,80 @@
 import { Product, ProductVariant, VariantOption } from '@/types/products';
 
 export const getProductPrice = (product: Product): number => {
-  if (!product.variants || !product.variants.length || !product.variants[0].options.length) return 0;
-  return product.variants[0].options[0].price;
+  if (!product.variants || product.variants.length === 0) return 0;
+  
+  // Se tem variações, retorna o menor preço entre todas as opções ativas
+  if (product.hasVariants) {
+    let minPrice = Infinity;
+    
+    product.variants.forEach(variant => {
+      variant.options.forEach(option => {
+        if (option.isActive && (option.stock || 0) > 0) {
+          minPrice = Math.min(minPrice, option.price);
+        }
+      });
+    });
+    
+    return minPrice !== Infinity ? minPrice : 0;
+  }
+  
+  // Se não tem variações, pega da primeira opção
+  return product.variants[0]?.options[0]?.price || 0;
 };
 
 export const getProductComparePrice = (product: Product): number | undefined => {
-  if (!product.variants || !product.variants.length || !product.variants[0].options.length) return undefined;
-  return product.variants[0].options[0].comparePrice;
+  if (!product.variants || product.variants.length === 0) return undefined;
+  
+  // Se tem variações, retorna o menor comparePrice entre opções com desconto
+  if (product.hasVariants) {
+    let minComparePrice: number | undefined = undefined;
+    
+    product.variants.forEach(variant => {
+      variant.options.forEach(option => {
+        if (option.isActive && option.comparePrice && option.comparePrice > option.price) {
+          if (!minComparePrice || option.comparePrice < minComparePrice) {
+            minComparePrice = option.comparePrice;
+          }
+        }
+      });
+    });
+    
+    return minComparePrice;
+  }
+  
+  // Se não tem variações, pega da primeira opção
+  return product.variants[0]?.options[0]?.comparePrice;
 };
 
 export const getProductTotalStock = (product: Product): number => {
-  if (!product.variants || !product.variants.length) return 0;
+  if (!product.variants || product.variants.length === 0) return 0;
   
-  if (!product.hasVariants) {
-    return product.variants[0]?.options[0]?.stock || 0;
+  if (product.hasVariants) {
+    // Para produtos com variações, soma o estoque de TODAS as opções
+    return product.variants.reduce((total, variant) => {
+      return total + variant.options.reduce((variantTotal, option) => {
+        return variantTotal + (option.stock || 0);
+      }, 0);
+    }, 0);
   }
   
-  return product.variants.reduce((total, variant) => {
-    return total + variant.options.reduce((variantTotal, option) => {
-      return variantTotal + (option.stock || 0);
-    }, 0);
-  }, 0);
+  // Para produtos sem variações, pega o estoque da primeira opção
+  return product.variants[0]?.options[0]?.stock || 0;
 };
 
 export const hasProductDiscount = (product: Product): boolean => {
+  if (!product.variants) return false;
+  
+  if (product.hasVariants) {
+    // Verifica se alguma opção de alguma variante tem comparePrice > price
+    return product.variants.some(variant =>
+      variant.options.some(option =>
+        option.comparePrice && option.comparePrice > option.price
+      )
+    );
+  }
+  
+  // Para produtos sem variações
   const comparePrice = getProductComparePrice(product);
   const price = getProductPrice(product);
   return !!comparePrice && comparePrice > price;
@@ -122,11 +172,15 @@ export function getPriceRange(product: Product): { min: number; max: number } {
       if (option.isActive && (option.stock || 0) > 0) {
         minPrice = Math.min(minPrice, option.price);
         maxPrice = Math.max(maxPrice, option.price);
+        
+        // Se tem comparePrice, considera também para o range máximo
+        if (option.comparePrice && option.comparePrice > option.price) {
+          maxPrice = Math.max(maxPrice, option.comparePrice);
+        }
       }
     });
   });
 
-  // Se não encontrou preços válidos, usa o preço base
   if (minPrice === Infinity) {
     const basePrice = getProductPrice(product);
     return { min: basePrice, max: basePrice };
@@ -153,28 +207,31 @@ export function hasAnyPromotion(product: Product): boolean {
 }
 
 // ✅ FUNÇÃO: Obter maior desconto entre variações
-export function getMaxDiscountPercentage(product: Product): number {
+export const getMaxDiscountPercentage = (product: Product): number => {
   if (!product.variants) return 0;
   
-  if (!product.hasVariants || product.variants.length === 0) {
+  let maxDiscount = 0;
+  
+  if (product.hasVariants) {
+    product.variants.forEach(variant => {
+      variant.options.forEach(option => {
+        if (option.comparePrice && option.comparePrice > option.price) {
+          const discount = getDiscountPercentage(option.price, option.comparePrice);
+          maxDiscount = Math.max(maxDiscount, discount);
+        }
+      });
+    });
+  } else {
+    // Para produtos sem variações
     const price = getProductPrice(product);
     const comparePrice = getProductComparePrice(product);
-    return getDiscountPercentage(price, comparePrice);
+    if (comparePrice && comparePrice > price) {
+      maxDiscount = getDiscountPercentage(price, comparePrice);
+    }
   }
-
-  let maxDiscount = 0;
-
-  product.variants.forEach(variant => {
-    variant.options.forEach(option => {
-      if (option.comparePrice && option.comparePrice > option.price) {
-        const discount = getDiscountPercentage(option.price, option.comparePrice);
-        maxDiscount = Math.max(maxDiscount, discount);
-      }
-    });
-  });
-
+  
   return maxDiscount;
-}
+};
 
 // ✅ NOVA FUNÇÃO: Verificar se produto tem imagens
 export const hasProductImages = (product: Product): boolean => {

@@ -1,4 +1,4 @@
-// components/product/ProductDeatils.tsx - REDESIGN COMPLETO
+// components/product/ProductDeatils.tsx - VERSÃO CORRIGIDA COMPLETA
 'use client';
 import { useState, useEffect } from 'react';
 import { Store } from '@/types/store';
@@ -15,7 +15,10 @@ import {
   getProductPrice,
   getProductComparePrice,
   getProductTotalStock,
-  getDiscountPercentage
+  getDiscountPercentage,
+  hasProductDiscount,
+  getMaxDiscountPercentage,
+  getPriceRange
 } from '@/lib/utils/product-helpers';
 
 interface ProductDetailsProps {
@@ -24,13 +27,93 @@ interface ProductDetailsProps {
 }
 
 export function ProductDetails({ store, product }: ProductDetailsProps) {
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [typedDescription, setTypedDescription] = useState('');
+
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [selectedOptions, setSelectedOptions] = useState<Record<string, VariantOption>>({});
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [typedDescription, setTypedDescription] = useState('');
+
+  // ✅ CORREÇÃO: Função com lógica para lidar com preços invertidos
+  const getCurrentVariantData = () => {
+    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
+      const selectedOption = Object.values(selectedOptions)[0];
+      
+      // ✅ CORREÇÃO: Lógica para detectar e corrigir preços invertidos
+      const price = selectedOption.price;
+      const comparePrice = selectedOption.comparePrice;
+      
+      let actualPrice = price;
+      let actualComparePrice = comparePrice;
+      let hasActualDiscount = false;
+      
+      // Se comparePrice existe E é diferente de price
+      if (comparePrice && comparePrice !== price) {
+        // ✅ CORREÇÃO: Determinar qual é o preço real e qual é o de comparação
+        if (comparePrice > price) {
+          // comparePrice é maior = é o preço original, price é o com desconto
+          actualPrice = price;
+          actualComparePrice = comparePrice;
+          hasActualDiscount = true;
+        } else if (comparePrice < price) {
+          // comparePrice é menor = está invertido, price é o preço original
+          actualPrice = comparePrice;
+          actualComparePrice = price;
+          hasActualDiscount = true;
+        }
+      }
+      
+      const variantData = {
+        price: actualPrice,
+        comparePrice: actualComparePrice,
+        hasDiscount: hasActualDiscount,
+        discountPercentage: hasActualDiscount 
+          ? getDiscountPercentage(actualPrice, actualComparePrice!)
+          : 0,
+        economy: hasActualDiscount
+          ? actualComparePrice! - actualPrice
+          : 0
+      };
+      
+      return variantData;
+    }
+    
+    // Para produtos sem variações
+    const basePrice = getProductPrice(product);
+    const baseComparePrice = getProductComparePrice(product);
+    
+    let actualPrice = basePrice;
+    let actualComparePrice = baseComparePrice;
+    let hasActualDiscount = false;
+    
+    if (baseComparePrice && baseComparePrice !== basePrice) {
+      if (baseComparePrice > basePrice) {
+        actualPrice = basePrice;
+        actualComparePrice = baseComparePrice;
+        hasActualDiscount = true;
+      } else if (baseComparePrice < basePrice) {
+        actualPrice = baseComparePrice;
+        actualComparePrice = basePrice;
+        hasActualDiscount = true;
+      }
+    }
+    
+    const baseData = {
+      price: actualPrice,
+      comparePrice: actualComparePrice,
+      hasDiscount: hasActualDiscount,
+      discountPercentage: hasActualDiscount 
+        ? getDiscountPercentage(actualPrice, actualComparePrice!)
+        : 0,
+      economy: hasActualDiscount
+        ? actualComparePrice! - actualPrice
+        : 0
+    };
+    
+    return baseData;
+  };
 
   // Gatilhos mentais simulados
   const viewingCount = Math.floor(Math.random() * 15) + 8;
@@ -42,8 +125,12 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
   const productPrice = getProductPrice(product);
   const productComparePrice = getProductComparePrice(product);
   const totalStock = getProductTotalStock(product);
-  const hasDiscount = productComparePrice && productComparePrice > productPrice;
-  const discountPercentage = hasDiscount ? getDiscountPercentage(productPrice, productComparePrice) : 0;
+  const hasDiscount = hasProductDiscount(product);
+  const discountPercentage = hasDiscount ? getDiscountPercentage(
+    productPrice,
+    productComparePrice || productPrice
+  ) : 0;
+  const maxDiscountPercentage = product.hasVariants ? getMaxDiscountPercentage(product) : discountPercentage;
   const [viewCount, setViewCount] = useState(viewingCount);
 
   const formatPrice = (price: number) => {
@@ -58,7 +145,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
       ...prev,
       [variant.id]: option.id
     }));
-
+    
     setSelectedOptions(prev => ({
       ...prev,
       [variant.id]: option
@@ -79,22 +166,6 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     };
   };
 
-  const getCurrentPrice = () => {
-    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
-      const selectedOption = Object.values(selectedOptions)[0];
-      return selectedOption.price;
-    }
-    return productPrice;
-  };
-
-  const getCurrentComparePrice = () => {
-    if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
-      const selectedOption = Object.values(selectedOptions)[0];
-      return selectedOption.comparePrice;
-    }
-    return productComparePrice;
-  };
-
   const getCurrentStock = () => {
     if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
       const selectedOption = Object.values(selectedOptions)[0];
@@ -108,14 +179,16 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     return product.variants.every(variant => selectedVariants[variant.id]);
   };
 
-  const currentPrice = getCurrentPrice();
-  const currentComparePrice = getCurrentComparePrice();
+  // ✅ CORREÇÃO: Usar a função corrigida
+  const currentVariantData = getCurrentVariantData();
+  const currentPrice = currentVariantData.price;
+  const currentComparePrice = currentVariantData.comparePrice;
+  const hasActivePromotion = currentVariantData.hasDiscount;
+  const currentDiscountPercentage = currentVariantData.discountPercentage;
+  const currentEconomy = currentVariantData.economy;
+
   const currentStock = getCurrentStock();
   const selectedVariantData = getSelectedVariantData();
-  const currentDiscountPercentage = currentComparePrice && currentComparePrice > currentPrice
-    ? getDiscountPercentage(currentPrice, currentComparePrice)
-    : 0;
-
   const isProductAvailable = currentStock > 0;
 
   const getStockText = () => {
@@ -133,8 +206,6 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
 
     return <span className="text-green-600 font-medium">✅ {currentStock} unidades disponíveis</span>;
   };
-
-  const hasActivePromotion = currentComparePrice && currentComparePrice > currentPrice;
 
   // Navegação de imagens
   const nextImage = () => {
@@ -194,7 +265,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ NOVO: Scroll to reviews
+  // Scroll to reviews
   const scrollToReviews = () => {
     document.getElementById('reviews-section')?.scrollIntoView({
       behavior: 'smooth'
@@ -345,21 +416,22 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             </div>
           </div>
 
-          {/* Preço com Destaque */}
-          <div className="space-y-3 p-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-200 shadow-sm">
+          {/* ✅ CORREÇÃO: Preço com Destaque - VERSÃO CORRIGIDA */}
+          <div className="space-y-3 p-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100">
             <div className="flex items-baseline space-x-3 flex-wrap gap-2">
               <span className="text-3xl lg:text-4xl font-bold text-gray-900">
                 {formatPrice(currentPrice)}
               </span>
 
-              {hasActivePromotion && (
+              {/* ✅ CORREÇÃO: Agora deve funcionar com a lógica corrigida */}
+              {hasActivePromotion && currentComparePrice && (
                 <>
                   <span className="text-xl text-gray-500 line-through">
-                    {formatPrice(currentComparePrice!)}
+                    {formatPrice(currentComparePrice)}
                   </span>
-                  <span
-                    className="px-3 py-1 text-sm font-bold text-white rounded-full animate-bounce"
-                    style={{
+                  <span 
+                    className="px-3 py-1 text-sm font-bold text-white rounded-full"
+                    style={{ 
                       backgroundColor: store.theme.primaryColor,
                       background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
                     }}
@@ -370,10 +442,10 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
               )}
             </div>
 
-            {hasActivePromotion && (
-              <p className="text-green-600 font-semibold text-lg flex items-center space-x-1">
-                <span>💰</span>
-                <span>Você economiza {formatPrice(currentComparePrice! - currentPrice)}</span>
+            {/* ✅ CORREÇÃO: Agora deve mostrar a economia */}
+            {hasActivePromotion && currentEconomy > 0 && (
+              <p className="text-green-600 font-semibold text-lg">
+                💰 Você economiza {formatPrice(currentEconomy)}
               </p>
             )}
 
@@ -381,6 +453,13 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             <div className="text-sm text-gray-600 bg-white px-3 py-2 rounded-lg border border-gray-200 inline-block">
               📦 ou 12x de {formatPrice(currentPrice / 12)} sem juros
             </div>
+
+            {/* Mensagem para selecionar variação */}
+            {product.hasVariants && Object.keys(selectedOptions).length === 0 && (
+              <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 inline-block mt-2">
+                ⚡ Selecione uma opção para ver o preço específico
+              </div>
+            )}
           </div>
 
           {/* Descrição com Efeito de Digitação */}
@@ -414,7 +493,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             )}
           </div>
 
-          {/* Variações */}
+          {/* ✅ CORREÇÃO: Variações com lógica corrigida */}
           {product.hasVariants && product.variants.length > 0 && (
             <div className="space-y-6">
               {product.variants.map((variant) => (
@@ -424,26 +503,70 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                   </label>
                   <div className="flex flex-wrap gap-3">
                     {variant.options.map((option) => {
-                      const optionHasPromotion = option.comparePrice && option.comparePrice > option.price;
-                      const optionDiscount = optionHasPromotion
-                        ? getDiscountPercentage(option.price, option.comparePrice!)
+                      // ✅ CORREÇÃO: Lógica invertida para as opções também
+                      const price = option.price;
+                      const comparePrice = option.comparePrice;
+                      
+                      let actualPrice = price;
+                      let actualComparePrice = comparePrice;
+                      let optionHasPromotion = false;
+                      
+                      if (comparePrice && comparePrice !== price) {
+                        if (comparePrice > price) {
+                          actualPrice = price;
+                          actualComparePrice = comparePrice;
+                          optionHasPromotion = true;
+                        } else if (comparePrice < price) {
+                          actualPrice = comparePrice;
+                          actualComparePrice = price;
+                          optionHasPromotion = true;
+                        }
+                      }
+                      
+                      const optionDiscount = optionHasPromotion 
+                        ? getDiscountPercentage(actualPrice, actualComparePrice!)
                         : 0;
+                      const optionEconomy = optionHasPromotion ? actualComparePrice! - actualPrice : 0;
 
                       return (
                         <button
                           key={option.id}
                           onClick={() => handleVariantSelect(variant, option)}
-                          className={`px-4 py-3 border-2 rounded-xl text-sm font-semibold transition-all min-w-[100px] ${selectedVariants[variant.id] === option.id
-                            ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-lg ring-2 ring-blue-200'
-                            : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow-md'
-                            } ${!option.isActive || option.stock === 0
-                              ? 'opacity-50 cursor-not-allowed grayscale'
+                          className={`px-4 py-3 border-2 rounded-xl text-sm font-semibold transition-all min-w-[100px] ${
+                            selectedVariants[variant.id] === option.id
+                              ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-lg ring-2 ring-blue-200'
+                              : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow-md'
+                          } ${
+                            !option.isActive || option.stock === 0 
+                              ? 'opacity-50 cursor-not-allowed grayscale' 
                               : ''
-                            }`}
+                          }`}
                           disabled={!option.isActive || option.stock === 0}
                         >
                           <div className="flex flex-col items-center space-y-1">
                             <span className="font-semibold">{option.name}</span>
+                            
+                            <div className="flex flex-col items-center space-y-1">
+                              <span className="font-bold text-gray-900">
+                                {formatPrice(actualPrice)}
+                              </span>
+                              
+                              {optionHasPromotion && (
+                                <div className="flex flex-col items-center space-y-0">
+                                  <span className="text-xs text-gray-500 line-through">
+                                    {formatPrice(actualComparePrice!)}
+                                  </span>
+                                  <span 
+                                    className="text-xs font-bold text-white px-2 py-0.5 rounded-full"
+                                    style={{ 
+                                      backgroundColor: store.theme.primaryColor,
+                                    }}
+                                  >
+                                    -{optionDiscount}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </button>
                       );

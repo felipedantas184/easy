@@ -21,26 +21,8 @@ export default function OrdersPage() {
       if (selectedStoreId) {
         try {
           setLoading(true);
-          // ✅ ALTERAÇÃO: Usar orderServiceNew
+          // ✅ USAR ORDER SERVICE NOVO
           const storeOrders = await orderServiceNew.getStoreOrders(selectedStoreId);
-          setOrders(storeOrders);
-        } catch (error) {
-          console.error('Erro ao carregar pedidos:', error);
-        } finally {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadOrders();
-  }, [selectedStoreId]);
-
-  useEffect(() => {
-    async function loadOrders() {
-      if (selectedStoreId) {
-        try {
-          setLoading(true);
-          const storeOrders = await orderService.getStoreOrders(selectedStoreId);
           setOrders(storeOrders);
         } catch (error) {
           console.error('Erro ao carregar pedidos:', error);

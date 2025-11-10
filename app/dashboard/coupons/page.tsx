@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { DiscountCoupon } from '@/types/discount';
 import { storeService } from '@/lib/firebase/firestore';
-import { discountService } from '@/lib/firebase/firestore';
+import { discountServiceNew } from '@/lib/firebase/firestore-new';
 import { Store } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { CouponTable } from '@/components/admin/CouponTable';
@@ -18,6 +18,12 @@ export default function CouponsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<DiscountCoupon | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    expired: 0,
+    totalUsage: 0,
+  });
 
   useEffect(() => {
     async function loadStores() {
@@ -42,8 +48,13 @@ export default function CouponsPage() {
       if (selectedStoreId) {
         try {
           setLoading(true);
-          const storeCoupons = await discountService.getStoreCoupons(selectedStoreId);
+          // ✅ USAR NOVO SERVICE
+          const storeCoupons = await discountServiceNew.getStoreCoupons(selectedStoreId);
           setCoupons(storeCoupons);
+          
+          // ✅ CARREGAR ESTATÍSTICAS
+          const couponStats = await discountServiceNew.getCouponStats(selectedStoreId);
+          setStats(couponStats);
         } catch (error) {
           console.error('Erro ao carregar cupons:', error);
         } finally {
@@ -60,7 +71,8 @@ export default function CouponsPage() {
     setEditingCoupon(null);
     // Recarregar cupons
     if (selectedStoreId) {
-      discountService.getStoreCoupons(selectedStoreId).then(setCoupons);
+      discountServiceNew.getStoreCoupons(selectedStoreId).then(setCoupons);
+      discountServiceNew.getCouponStats(selectedStoreId).then(setStats);
     }
   };
 
@@ -75,30 +87,37 @@ export default function CouponsPage() {
     }
 
     try {
-      await discountService.deleteCoupon(couponId);
+      // ✅ USAR NOVO SERVICE
+      await discountServiceNew.deleteCoupon(selectedStoreId, couponId);
       // Recarregar cupons
-      const updatedCoupons = await discountService.getStoreCoupons(selectedStoreId);
+      const updatedCoupons = await discountServiceNew.getStoreCoupons(selectedStoreId);
       setCoupons(updatedCoupons);
+      
+      // Atualizar estatísticas
+      const couponStats = await discountServiceNew.getCouponStats(selectedStoreId);
+      setStats(couponStats);
     } catch (error) {
       console.error('Erro ao excluir cupom:', error);
       alert('Erro ao excluir cupom');
     }
   };
 
-  const getStats = () => {
-    const activeCoupons = coupons.filter(c => c.isActive);
-    const expiredCoupons = coupons.filter(c => new Date() > c.validUntil);
-    const totalUsage = coupons.reduce((sum, c) => sum + c.usedCount, 0);
-
-    return {
-      active: activeCoupons.length,
-      expired: expiredCoupons.length,
-      totalUsage,
-      total: coupons.length,
-    };
+  const handleRefresh = async () => {
+    if (selectedStoreId) {
+      try {
+        setLoading(true);
+        const updatedCoupons = await discountServiceNew.getStoreCoupons(selectedStoreId);
+        setCoupons(updatedCoupons);
+        
+        const couponStats = await discountServiceNew.getCouponStats(selectedStoreId);
+        setStats(couponStats);
+      } catch (error) {
+        console.error('Erro ao atualizar cupons:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
   };
-
-  const stats = getStats();
 
   if (stores.length === 0) {
     return (
@@ -131,9 +150,9 @@ export default function CouponsPage() {
             Crie e gerencie cupons de desconto para suas lojas
           </p>
         </div>
-        
+
         {selectedStoreId && (
-          <Button 
+          <Button
             onClick={() => setShowForm(true)}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -221,7 +240,7 @@ export default function CouponsPage() {
             loading={loading}
             onEdit={handleEditCoupon}
             onDelete={handleDeleteCoupon}
-            onRefresh={() => selectedStoreId && discountService.getStoreCoupons(selectedStoreId).then(setCoupons)}
+            onRefresh={handleRefresh}
           />
         </div>
       )}
@@ -232,7 +251,7 @@ export default function CouponsPage() {
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             {/* Backdrop */}
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => { setShowForm(false); setEditingCoupon(null); }} />
-            
+
             {/* Modal */}
             <div className="relative inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6">
               <CouponForm

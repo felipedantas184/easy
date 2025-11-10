@@ -6,10 +6,8 @@ import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OrderSummary } from '@/components/checkout/OrderSummary';
-import { orderService } from '@/lib/firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { getProductPrice } from '@/lib/utils/product-helpers';
-import { orderServiceNew } from '@/lib/firebase/firestore-new';
 import {
   User, Mail, Phone, MapPin, Home, Map, CreditCard,
   CheckCircle, ArrowLeft, Lock, Shield, Truck, Zap
@@ -20,7 +18,13 @@ interface CheckoutFormProps {
 }
 
 export function CheckoutForm({ store }: CheckoutFormProps) {
-  const { state, clearCart } = useCart();
+  const {
+    state,
+    clearCart,
+    getFinalTotal,
+    createOrder
+  } = useCart();
+
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -119,13 +123,18 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
         status: 'pending' as const,
         paymentMethod: 'pix' as const,
         paymentStatus: 'pending' as const,
-        total: state.total,
+        total: getFinalTotal(),
       };
 
-      // ✅ ALTERAÇÃO: Usar orderServiceNew
-      const orderId = await orderServiceNew.createOrder(store.id, orderData);
-      clearCart();
-      router.push(`/${store.slug}/checkout/confirmation?orderId=${orderId}`);
+      // ✅ USAR NOVO MÉTODO DO CART CONTEXT
+      const result = await createOrder(orderData);
+
+      if (result.success && result.orderId) {
+        clearCart();
+        router.push(`/${store.slug}/checkout/confirmation?orderId=${result.orderId}`);
+      } else {
+        alert(result.message || 'Erro ao processar pedido');
+      }
 
     } catch (error) {
       console.error('Erro ao processar pedido:', error);
@@ -176,8 +185,8 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
               <div className={`flex flex-col items-center ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'
                 }`}>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${currentStep >= step.number
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
-                    : 'border-gray-300 bg-white'
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
+                  : 'border-gray-300 bg-white'
                   }`}>
                   {currentStep > step.number ? (
                     <CheckCircle size={20} />

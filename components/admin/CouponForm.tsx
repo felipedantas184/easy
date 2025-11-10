@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { DiscountCoupon } from '@/types/discount';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { discountService } from '@/lib/firebase/firestore';
+import { discountServiceNew } from '@/lib/firebase/firestore-new';
 import { Calendar, X } from 'lucide-react';
 
 interface CouponFormProps {
@@ -88,7 +88,7 @@ export function CouponForm({ storeId, coupon, onSuccess, onCancel }: CouponFormP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -113,22 +113,31 @@ export function CouponForm({ storeId, coupon, onSuccess, onCancel }: CouponFormP
         excludedProducts: [],
       };
 
+      // ✅ VERIFICAR SE CÓDIGO É ÚNICO
+      const isUnique = await discountServiceNew.isCodeUnique(
+        storeId,
+        couponData.code,
+        coupon?.id
+      );
+
+      if (!isUnique) {
+        setErrors({ code: 'Este código de cupom já existe' });
+        setLoading(false);
+        return;
+      }
+
       if (coupon) {
-        // Atualizar cupom existente
-        await discountService.updateCoupon(coupon.id, couponData);
+        // ✅ USAR NOVO SERVICE - Atualizar cupom existente
+        await discountServiceNew.updateCoupon(storeId, coupon.id, couponData);
       } else {
-        // Criar novo cupom
-        await discountService.createCoupon(couponData);
+        // ✅ USAR NOVO SERVICE - Criar novo cupom
+        await discountServiceNew.createCoupon(storeId, couponData);
       }
 
       onSuccess();
     } catch (error) {
       console.error('Erro ao salvar cupom:', error);
-      if (error instanceof Error && error.message.includes('already exists')) {
-        setErrors({ code: 'Este código de cupom já existe' });
-      } else {
-        setErrors({ submit: 'Erro ao salvar cupom. Tente novamente.' });
-      }
+      setErrors({ submit: 'Erro ao salvar cupom. Tente novamente.' });
     } finally {
       setLoading(false);
     }
@@ -136,7 +145,7 @@ export function CouponForm({ storeId, coupon, onSuccess, onCancel }: CouponFormP
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     // Limpar erro do campo quando usuário começar a digitar
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -360,8 +369,8 @@ export function CouponForm({ storeId, coupon, onSuccess, onCancel }: CouponFormP
             <p><strong>Código:</strong> {formData.code || '---'}</p>
             <p><strong>Desconto:</strong> {
               formData.discountType === 'percentage' ? `${formData.discountValue || '0'}% OFF` :
-              formData.discountType === 'fixed' ? `R$ ${formData.discountValue || '0'} OFF` :
-              'FRETE GRÁTIS'
+                formData.discountType === 'fixed' ? `R$ ${formData.discountValue || '0'} OFF` :
+                  'FRETE GRÁTIS'
             }</p>
             {formData.minOrderValue && (
               <p><strong>Valor mínimo:</strong> R$ {formData.minOrderValue}</p>

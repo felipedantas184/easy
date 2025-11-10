@@ -1,10 +1,16 @@
 'use client';
 import { DiscountValidator } from '@/lib/discount/discount-validator';
-import { discountService, productService } from '@/lib/firebase/firestore';
-import { CartDiscount, Product, VariantOption } from '@/types';
-import { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { CartDiscount, Order, Product, VariantOption } from '@/types';
+import { createContext, useContext, useReducer, useEffect, useState, useCallback } from 'react';
 import { getProductPrice, getProductTotalStock } from '@/lib/utils/product-helpers';
 import { discountServiceNew, productServiceNew } from '@/lib/firebase/firestore-new';
+import { orderServiceNew } from '@/lib/firebase/order-service-new';
+import {
+  serializeCart,
+  deserializeCart,
+  validateCartItem,
+  clearCorruptedCart
+} from '@/lib/utils/cart-helpers';
 
 export interface CartItem {
   product: Product;
@@ -22,6 +28,7 @@ interface CartState {
   total: number;
   itemCount: number;
   discount?: CartDiscount;
+  storeId?: string;
 }
 
 interface CartContextType {
@@ -36,12 +43,13 @@ interface CartContextType {
   removeDiscount: () => void;
   getFinalTotal: () => number;
   checkStock: (productId: string, variantId?: string, quantity?: number) => Promise<{ available: boolean; currentStock: number }>;
-  setStoreId?: (storeId: string) => void;
+  setStoreId: (storeId: string) => void;
+  createOrder: (orderData: Omit<Order, 'id' | 'createdAt'>) => Promise<{ success: boolean; orderId?: string; message: string }>;
 }
 
 interface CartProviderProps {
   children: React.ReactNode;
-  storeId?: string; // ✅ NOVO: storeId opcional para inicialização
+  storeId?: string;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -53,14 +61,14 @@ type CartAction =
   | { type: 'CLEAR_CART' }
   | { type: 'LOAD_CART'; payload: CartState }
   | { type: 'APPLY_DISCOUNT'; payload: CartDiscount }
-  | { type: 'REMOVE_DISCOUNT' };
+  | { type: 'REMOVE_DISCOUNT' }
+  | { type: 'SET_STORE_ID'; payload: string };
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case 'ADD_ITEM': {
       const existingItemIndex = state.items.findIndex(item =>
         item.product.id === action.payload.product.id &&
-        item.selectedVariant?.variantId === action.payload.selectedVariant?.variantId &&
         item.selectedVariant?.optionId === action.payload.selectedVariant?.optionId
       );
 
@@ -76,181 +84,189 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         newItems = [...state.items, action.payload];
       }
 
-      return calculateTotals(newItems);
+      return calculateTotals({ ...state, items: newItems });
     }
 
     case 'REMOVE_ITEM': {
       const newItems = state.items.filter(item =>
         !(item.product.id === action.payload.productId &&
-          item.selectedVariant?.variantId === action.payload.variantId)
+          item.selectedVariant?.optionId === action.payload.variantId)
       );
-      return calculateTotals(newItems);
+      return calculateTotals({ ...state, items: newItems });
     }
 
     case 'UPDATE_QUANTITY': {
       const newItems = state.items.map(item =>
         item.product.id === action.payload.productId &&
-          item.selectedVariant?.variantId === action.payload.variantId
+          item.selectedVariant?.optionId === action.payload.variantId
           ? { ...item, quantity: action.payload.quantity }
           : item
       ).filter(item => item.quantity > 0);
-      return calculateTotals(newItems);
+      return calculateTotals({ ...state, items: newItems });
     }
 
     case 'CLEAR_CART':
-      return { items: [], total: 0, itemCount: 0 };
+      return { items: [], total: 0, itemCount: 0, storeId: state.storeId };
 
     case 'LOAD_CART':
       return action.payload;
 
-    case 'APPLY_DISCOUNT': {
+    case 'APPLY_DISCOUNT':
       return {
         ...state,
         discount: action.payload,
       };
-    }
 
     case 'REMOVE_DISCOUNT': {
       const { discount, ...stateWithoutDiscount } = state;
       return stateWithoutDiscount;
     }
 
+    case 'SET_STORE_ID':
+      return {
+        ...state,
+        storeId: action.payload
+      };
+
     default:
       return state;
   }
 }
 
-function calculateTotals(items: CartItem[]): CartState {
-  const total = items.reduce((sum, item) => {
-    // ✅ Usar preço da variação ou helper do produto
+function calculateTotals(state: CartState): CartState {
+  const total = state.items.reduce((sum, item) => {
     const price = item.selectedVariant?.price || getProductPrice(item.product);
     return sum + (price * item.quantity);
   }, 0);
 
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const itemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
 
-  return { items, total, itemCount };
+  return { ...state, total, itemCount };
 }
 
 const CART_STORAGE_KEY = 'easy-platform-cart';
 
 export function CartProvider({ children, storeId }: CartProviderProps) {
-  const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0, itemCount: 0 });
-  const [currentStoreId, setCurrentStoreId] = useState<string | undefined>(storeId);
+  const [state, dispatch] = useReducer(cartReducer, {
+    items: [],
+    total: 0,
+    itemCount: 0,
+    storeId
+  });
 
-  useEffect(() => {
-    if (storeId) {
-      setCurrentStoreId(storeId);
-    }
-  }, [storeId]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // ✅ NOVO: Função para definir storeId
-  const setStoreId = (storeId: string) => {
-    setCurrentStoreId(storeId);
-  };
-
+  // ✅ CARREGAR CARRINHO DO LOCALSTORAGE (CORRIGIDO)
   useEffect(() => {
     try {
+      console.log('🔄 CartProvider: Iniciando carregamento do carrinho...');
+
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+
       if (savedCart) {
-        const cartData = JSON.parse(savedCart);
-        dispatch({ type: 'LOAD_CART', payload: cartData });
+        console.log('📦 CartProvider: Carrinho encontrado no localStorage');
+
+        const cartData = deserializeCart(savedCart);
+
+        // Validar estrutura do carrinho
+        if (cartData.items && Array.isArray(cartData.items)) {
+          const validItems = cartData.items.filter(validateCartItem);
+
+          if (validItems.length > 0) {
+            console.log(`✅ CartProvider: ${validItems.length} itens válidos carregados`);
+
+            dispatch({
+              type: 'LOAD_CART',
+              payload: {
+                ...cartData,
+                items: validItems
+              }
+            });
+          } else {
+            console.log('⚠️ CartProvider: Nenhum item válido encontrado, carrinho vazio');
+            clearCorruptedCart();
+          }
+        } else {
+          console.log('❌ CartProvider: Estrutura do carrinho inválida, limpando...');
+          clearCorruptedCart();
+        }
+      } else {
+        console.log('🆕 CartProvider: Nenhum carrinho salvo encontrado');
       }
     } catch (error) {
-      console.error('Erro ao carregar carrinho do localStorage:', error);
+      console.error('❌ CartProvider: Erro crítico ao carregar carrinho:', error);
+      clearCorruptedCart();
+    } finally {
+      setIsInitialized(true);
     }
   }, []);
 
+  // ✅ SALVAR CARRINHO NO LOCALSTORAGE (CORRIGIDO)
   useEffect(() => {
+    // Só salva após a inicialização para evitar loop
+    if (!isInitialized) return;
+
     try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
+      console.log('💾 CartProvider: Salvando carrinho no localStorage...', {
+        items: state.items.length,
+        total: state.total
+      });
+
+      const serializedData = serializeCart(state);
+      localStorage.setItem(CART_STORAGE_KEY, serializedData);
+
+      console.log('✅ CartProvider: Carrinho salvo com sucesso');
     } catch (error) {
-      console.error('Erro ao salvar carrinho no localStorage:', error);
+      console.error('❌ CartProvider: Erro ao salvar carrinho:', error);
     }
-  }, [state]);
+  }, [state, isInitialized]);
 
-  const checkStock: CartContextType['checkStock'] = async (productId: string, variantId?: string, quantity: number = 1): Promise<{ available: boolean; currentStock: number }> => {
+  // ✅ VERIFICAÇÃO DE ESTOQUE OTIMIZADA
+  const checkStock = useCallback(async (
+    productId: string,
+    variantId?: string,
+    quantity: number = 1
+  ): Promise<{ available: boolean; currentStock: number }> => {
     try {
-      console.log('🔍 checkStock: Iniciando verificação', {
-        productId,
-        variantId,
-        quantity,
-        currentStoreId
-      });
-
-      // ✅ CORREÇÃO: Verificar se temos storeId
-      if (!currentStoreId) {
-        console.log('❌ checkStock: StoreId não disponível no contexto');
+      if (!state.storeId) {
         return { available: false, currentStock: 0 };
       }
 
-      // ✅ CORREÇÃO: Usar productServiceNew com storeId correto
-      const product = await productServiceNew.getProduct(currentStoreId, productId);
-
+      const product = await productServiceNew.getProduct(state.storeId, productId);
       if (!product) {
-        console.log('❌ checkStock: Produto não encontrado');
         return { available: false, currentStock: 0 };
       }
 
-      console.log('📦 checkStock: Produto carregado', {
-        name: product.name,
-        hasVariants: product.hasVariants,
-        variantsCount: product.variants?.length || 0
-      });
-
-      // Resto da função permanece EXATAMENTE igual...
+      // Para produtos com variantes
       if (product.hasVariants && product.variants && product.variants.length > 0) {
-        console.log('🎯 checkStock: Produto tem variações');
-
         let selectedOption: VariantOption | undefined;
 
+        // Encontrar a opção selecionada
         for (const variant of product.variants) {
           selectedOption = variant.options.find(opt => opt.id === variantId);
           if (selectedOption) break;
+        }
+
+        // Se não encontrou a variante específica, usar a primeira opção
+        if (!selectedOption && product.variants[0]?.options[0]) {
+          selectedOption = product.variants[0].options[0];
         }
 
         if (selectedOption) {
           const currentStock = selectedOption.stock || 0;
           const cartQuantity = state.items
             .filter(item => item.product.id === productId)
-            .find(item => item.selectedVariant?.optionId === variantId)?.quantity || 0;
+            .find(item => item.selectedVariant?.optionId === (variantId || selectedOption?.id))?.quantity || 0;
 
           const availableStock = Math.max(0, currentStock - cartQuantity);
-
-          console.log('📊 checkStock: Resultado variação', {
-            optionName: selectedOption.name,
-            currentStock,
-            cartQuantity,
-            availableStock,
-            required: quantity,
-            available: availableStock >= quantity
-          });
-
           return {
             available: availableStock >= quantity,
             currentStock: availableStock
           };
-        } else {
-          console.log('⚠️ checkStock: Variação não encontrada, usando primeira opção');
-          const firstOption = product.variants[0]?.options[0];
-          if (firstOption) {
-            const currentStock = firstOption.stock || 0;
-            const cartQuantity = state.items
-              .filter(item => item.product.id === productId)
-              .find(item => !item.selectedVariant)?.quantity || 0;
-
-            const availableStock = Math.max(0, currentStock - cartQuantity);
-
-            return {
-              available: availableStock >= quantity,
-              currentStock: availableStock
-            };
-          }
         }
       }
 
-      // Para produtos SEM variações
-      console.log('📦 checkStock: Produto sem variações');
+      // Para produtos sem variantes
       const currentStock = getProductTotalStock(product);
       const cartQuantity = state.items
         .filter(item => item.product.id === productId)
@@ -258,121 +274,56 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
 
       const availableStock = Math.max(0, currentStock - cartQuantity);
 
-      console.log('📊 checkStock: Resultado sem variações', {
-        currentStock,
-        cartQuantity,
-        availableStock,
-        required: quantity,
-        available: availableStock >= quantity
-      });
-
       return {
         available: availableStock >= quantity,
         currentStock: availableStock
       };
 
     } catch (error) {
-      console.error('❌ checkStock: Erro ao verificar estoque:', error);
+      console.error('Erro ao verificar estoque:', error);
       return { available: false, currentStock: 0 };
     }
-  };
+  }, [state.storeId, state.items]);
 
-  const addItem: CartContextType['addItem'] = async (product, quantity = 1, selectedVariant) => {
+  // ✅ ADICIONAR ITEM COM VALIDAÇÃO
+  const addItem = useCallback(async (
+    product: Product,
+    quantity: number = 1,
+    selectedVariant?: CartItem['selectedVariant']
+  ): Promise<{ success: boolean; message: string }> => {
     try {
-      console.log('🛒 addItem: Iniciando adição', {
-        product: product.name,
-        productId: product.id,
-        quantity,
-        selectedVariant,
-        hasVariants: product.hasVariants
-      });
-
-      // ✅ CORREÇÃO: Usar checkStock corrigido
       const stockCheck = await checkStock(
         product.id,
         selectedVariant?.optionId,
         quantity
       );
 
-      console.log('📊 addItem: Resultado verificação estoque', stockCheck);
-
       if (!stockCheck.available) {
         const message = stockCheck.currentStock === 0
           ? 'Produto esgotado'
           : `Apenas ${stockCheck.currentStock} unidades disponíveis`;
 
-        console.log('❌ addItem: Estoque insuficiente', { message });
-        return {
-          success: false,
-          message
-        };
+        return { success: false, message };
       }
 
-      // ✅ CORREÇÃO: Dispatch para adicionar item
       dispatch({
         type: 'ADD_ITEM',
-        payload: {
-          product,
-          quantity,
-          selectedVariant,
-        },
+        payload: { product, quantity, selectedVariant },
       });
 
-      console.log('✅ addItem: Produto adicionado com sucesso');
       return { success: true, message: 'Produto adicionado ao carrinho' };
-
     } catch (error) {
-      console.error('❌ addItem: Erro inesperado:', error);
-      return {
-        success: false,
-        message: 'Erro ao adicionar produto ao carrinho'
-      };
+      console.error('Erro ao adicionar item:', error);
+      return { success: false, message: 'Erro ao adicionar produto ao carrinho' };
     }
-  };
+  }, [checkStock]);
 
-  /** ANTES DO TEMP 
-  const addItem: CartContextType['addItem'] = async (product, quantity = 1, selectedVariant) => {
-    console.log('🛒 addItem: Iniciando adição', {
-      product: product.name,
-      quantity,
-      selectedVariant,
-      hasVariants: product.hasVariants
-    });
-
-    const stockCheck = await checkStock(
-      product.id,
-      selectedVariant?.optionId,
-      quantity
-    );
-
-    console.log('📊 addItem: Resultado checkStock', stockCheck);
-
-    if (!stockCheck.available) {
-      const message = stockCheck.currentStock === 0
-        ? 'Produto esgotado'
-        : `Apenas ${stockCheck.currentStock} unidades disponíveis`;
-
-      console.log('❌ addItem: Estoque insuficiente', { message });
-      return {
-        success: false,
-        message
-      };
-    }
-
-    dispatch({
-      type: 'ADD_ITEM',
-      payload: {
-        product,
-        quantity,
-        selectedVariant,
-      },
-    });
-
-    console.log('✅ addItem: Produto adicionado com sucesso');
-    return { success: true, message: 'Produto adicionado ao carrinho' };
-  };*/
-
-  const updateQuantity: CartContextType['updateQuantity'] = async (productId, quantity, variantId) => {
+  // ✅ ATUALIZAR QUANTIDADE
+  const updateQuantity = useCallback(async (
+    productId: string,
+    quantity: number,
+    variantId?: string
+  ): Promise<{ success: boolean; message: string }> => {
     if (quantity <= 0) {
       removeItem(productId, variantId);
       return { success: true, message: 'Item removido' };
@@ -392,39 +343,70 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     });
 
     return { success: true, message: 'Quantidade atualizada' };
-  };
+  }, [checkStock]);
 
-  const removeItem: CartContextType['removeItem'] = (productId, variantId) => {
+  // ✅ CRIAR PEDIDO
+  const createOrder = useCallback(async (
+    orderData: Omit<Order, 'id' | 'createdAt'>
+  ): Promise<{ success: boolean; orderId?: string; message: string }> => {
+    try {
+      if (!state.storeId) {
+        return { success: false, message: 'Store ID não definido' };
+      }
+
+      // Validar estoque uma última vez antes de criar o pedido
+      for (const item of orderData.items) {
+        const stockCheck = await checkStock(
+          item.productId,
+          item.variant?.optionId,
+          item.quantity
+        );
+
+        if (!stockCheck.available) {
+          return {
+            success: false,
+            message: `Estoque insuficiente para ${item.productName}`
+          };
+        }
+      }
+
+      const orderId = await orderServiceNew.createOrder(state.storeId, orderData);
+      return { success: true, orderId, message: 'Pedido criado com sucesso' };
+    } catch (error) {
+      console.error('Erro ao criar pedido:', error);
+      return { success: false, message: 'Erro ao criar pedido' };
+    }
+  }, [state.storeId, checkStock]);
+
+  // ✅ OUTRAS FUNÇÕES
+  const removeItem = useCallback((productId: string, variantId?: string) => {
     dispatch({
       type: 'REMOVE_ITEM',
       payload: { productId, variantId },
     });
-  };
+  }, []);
 
-  const clearCart: CartContextType['clearCart'] = () => {
+  const clearCart = useCallback(() => {
     dispatch({ type: 'CLEAR_CART' });
-  };
+  }, []);
 
-  const getItemCount = () => state.itemCount;
-  const getTotalPrice = () => state.total;
+  const setStoreId = useCallback((storeId: string) => {
+    dispatch({ type: 'SET_STORE_ID', payload: storeId });
+  }, []);
 
-  const applyDiscount: CartContextType['applyDiscount'] = async (couponCode, storeId) => {
+  const applyDiscount = useCallback(async (couponCode: string, storeId: string) => {
     try {
-      // ✅ ALTERAÇÃO: Usar discountServiceNew
       const coupon = await discountServiceNew.getCouponByCode(storeId, couponCode);
-
       if (!coupon) {
         return { success: false, message: 'Cupom não encontrado' };
       }
 
       const validation = DiscountValidator.validateCoupon(coupon, state.items, state.total);
-
       if (!validation.isValid) {
         return { success: false, message: validation.error || 'Cupom inválido' };
       }
 
       const discountAmount = DiscountValidator.calculateDiscount(coupon, state.total);
-
       const cartDiscount: CartDiscount = {
         couponCode: coupon.code,
         discountAmount,
@@ -432,32 +414,29 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
         applied: true,
       };
 
-      dispatch({
-        type: 'APPLY_DISCOUNT',
-        payload: cartDiscount,
-      });
-
+      dispatch({ type: 'APPLY_DISCOUNT', payload: cartDiscount });
       return {
         success: true,
         message: `Cupom aplicado! Desconto de ${DiscountValidator.formatCouponDescription(coupon)}`
       };
-
     } catch (error) {
       console.error('Erro ao aplicar cupom:', error);
       return { success: false, message: 'Erro ao aplicar cupom' };
     }
-  };
+  }, [state.items, state.total]);
 
-  const removeDiscount: CartContextType['removeDiscount'] = () => {
+  const removeDiscount = useCallback(() => {
     dispatch({ type: 'REMOVE_DISCOUNT' });
-  };
+  }, []);
 
-  const getFinalTotal: CartContextType['getFinalTotal'] = () => {
+  const getItemCount = useCallback(() => state.itemCount, [state.itemCount]);
+  const getTotalPrice = useCallback(() => state.total, [state.total]);
+  const getFinalTotal = useCallback(() => {
     const discountAmount = state.discount?.discountAmount || 0;
     return Math.max(0, state.total - discountAmount);
-  };
+  }, [state.total, state.discount]);
 
-  const value: CartContextType & { setStoreId?: (storeId: string) => void } = {
+  const value: CartContextType = {
     state,
     addItem,
     removeItem,
@@ -469,7 +448,8 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     removeDiscount,
     getFinalTotal,
     checkStock,
-    setStoreId, // ✅ NOVO: Expor setStoreId no contexto
+    setStoreId,
+    createOrder,
   };
 
   return (

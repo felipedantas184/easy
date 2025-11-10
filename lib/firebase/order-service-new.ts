@@ -9,31 +9,28 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp,
-  writeBatch,
-  limit,
-  startAfter,
-  DocumentSnapshot
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from './config';
 import { Order, OrderStatus, PaymentStatus, OrderItem } from '@/types/order';
+import { inventoryServiceNew } from '../inventory/inventory-service-new';
 
 export const orderServiceNew = {
   // Criar pedido na subcollection
   async createOrder(storeId: string, orderData: Omit<Order, 'id' | 'createdAt'>): Promise<string> {
     try {
       const storeRef = doc(db, 'stores', storeId);
-      
+
       const order: Omit<Order, 'id'> = {
         ...orderData,
         createdAt: serverTimestamp() as any,
       };
 
       const orderRef = await addDoc(collection(storeRef, 'orders'), order);
-      
+
       // Atualizar estoque dos produtos/variantes
       await this.updateInventoryOnOrder(storeId, orderData.items);
-      
+
       return orderRef.id;
     } catch (error) {
       console.error('Erro ao criar pedido:', error);
@@ -66,7 +63,7 @@ export const orderServiceNew = {
   async getStoreOrders(storeId: string, status?: OrderStatus): Promise<Order[]> {
     try {
       const storeRef = doc(db, 'stores', storeId);
-      
+
       let ordersQuery;
       if (status) {
         ordersQuery = query(
@@ -101,8 +98,8 @@ export const orderServiceNew = {
     try {
       const storeRef = doc(db, 'stores', storeId);
       const orderRef = doc(storeRef, 'orders', orderId);
-      
-      await updateDoc(orderRef, { 
+
+      await updateDoc(orderRef, {
         status,
         updatedAt: serverTimestamp()
       });
@@ -117,8 +114,8 @@ export const orderServiceNew = {
     try {
       const storeRef = doc(db, 'stores', storeId);
       const orderRef = doc(storeRef, 'orders', orderId);
-      
-      await updateDoc(orderRef, { 
+
+      await updateDoc(orderRef, {
         paymentStatus,
         updatedAt: serverTimestamp()
       });
@@ -133,7 +130,7 @@ export const orderServiceNew = {
     try {
       const storeRef = doc(db, 'stores', storeId);
       const orderRef = doc(storeRef, 'orders', orderId);
-      
+
       await updateDoc(orderRef, {
         ...updates,
         updatedAt: serverTimestamp()
@@ -184,34 +181,54 @@ export const orderServiceNew = {
   // Atualizar estoque quando pedido é criado
   async updateInventoryOnOrder(storeId: string, items: OrderItem[]): Promise<void> {
     try {
-      const batch = writeBatch(db);
-      
-      for (const item of items) {
-        if (item.variant?.optionId) {
-          // Atualizar estoque da variante
-          const variantQuery = query(
-            collection(doc(db, 'stores', storeId), 'product_variants'),
-            where('id', '==', item.variant.optionId)
-          );
-          
-          const variantSnapshot = await getDocs(variantQuery);
-          if (!variantSnapshot.empty) {
-            const variantDoc = variantSnapshot.docs[0];
-            const currentStock = variantDoc.data().stock || 0;
-            const newStock = Math.max(0, currentStock - item.quantity);
-            
-            batch.update(variantDoc.ref, { 
-              stock: newStock,
-              updatedAt: serverTimestamp()
-            });
-          }
-        }
-      }
-      
-      await batch.commit();
+      // Esta função será removida pois o estoque será atualizado
+      // quando o pedido for confirmado, não quando criado
+      console.log('📦 OrderService: Estoque será atualizado quando pedido for confirmado');
     } catch (error) {
-      console.error('Erro ao atualizar estoque:', error);
-      // Não lançar erro para não falhar a criação do pedido
+      console.error('Erro no updateInventoryOnOrder:', error);
+    }
+  },
+
+  async confirmOrder(storeId: string, orderId: string): Promise<void> {
+    try {
+      const order = await this.getOrder(storeId, orderId);
+      if (!order) {
+        throw new Error('Pedido não encontrado');
+      }
+
+      // ✅ ATUALIZAR ESTOQUE APÓS CONFIRMAÇÃO DO PEDIDO
+      await inventoryServiceNew.updateStockOnOrder(storeId, orderId, order.items);
+
+      // ✅ ATUALIZAR STATUS DO PEDIDO
+      await this.updateOrderStatus(storeId, orderId, 'confirmed');
+
+      console.log('✅ OrderService: Pedido confirmado e estoque atualizado');
+    } catch (error) {
+      console.error('❌ OrderService: Erro ao confirmar pedido:', error);
+      throw new Error('Falha ao confirmar pedido');
+    }
+  },
+
+  // ADICIONAR função para cancelar pedido com restauração de estoque
+  async cancelOrder(storeId: string, orderId: string): Promise<void> {
+    try {
+      const order = await this.getOrder(storeId, orderId);
+      if (!order) {
+        throw new Error('Pedido não encontrado');
+      }
+
+      // ✅ RESTAURAR ESTOQUE SE O PEDIDO JÁ FOI CONFIRMADO
+      if (order.status === 'confirmed' || order.status === 'preparing') {
+        await inventoryServiceNew.restoreStockOnCancel(storeId, orderId, order.items);
+      }
+
+      // ✅ ATUALIZAR STATUS DO PEDIDO
+      await this.updateOrderStatus(storeId, orderId, 'cancelled');
+
+      console.log('✅ OrderService: Pedido cancelado e estoque restaurado');
+    } catch (error) {
+      console.error('❌ OrderService: Erro ao cancelar pedido:', error);
+      throw new Error('Falha ao cancelar pedido');
     }
   },
 
@@ -224,7 +241,7 @@ export const orderServiceNew = {
   }> {
     try {
       const orders = await this.getStoreOrders(storeId);
-      
+
       return {
         total: orders.length,
         pending: orders.filter(o => o.status === 'pending').length,

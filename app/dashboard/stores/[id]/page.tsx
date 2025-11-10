@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { StoreForm } from '@/components/admin/StoreForm';
-import { storeService } from '@/lib/firebase/firestore';
 import { Store } from '@/types/store';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 export default function EditStorePage() {
   const params = useParams();
@@ -18,7 +18,7 @@ export default function EditStorePage() {
 
   const loadStore = async () => {
     try {
-      const storeData = await storeService.getStore(storeId);
+      const storeData = await storeServiceNew.getStore(storeId);
       setStore(storeData);
     } catch (error) {
       console.error('Erro ao carregar loja:', error);

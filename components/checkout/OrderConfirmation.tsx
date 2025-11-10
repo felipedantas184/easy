@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { Store } from '@/types/store';
 import { Order } from '@/types/order';
-import { orderService } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Check, Clock, Download } from 'lucide-react';
 import Link from 'next/link';

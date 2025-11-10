@@ -44,8 +44,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 // Função auxiliar para buscar dados da loja
 async function getStoreData(slug: string) {
   try {
-    const storeService = (await import('@/lib/firebase/firestore')).storeService;
-    const store = await storeService.getStoreBySlug(slug);
+    const storeServiceNew = (await import('@/lib/firebase/firestore-new')).storeServiceNew;
+    const store = await storeServiceNew.getStoreBySlug(slug);
     
     return { store };
   } catch (error) {

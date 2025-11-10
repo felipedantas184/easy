@@ -1,12 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { storeService } from '@/lib/firebase/firestore';
 import { Store } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Store as StoreIcon, Plus } from 'lucide-react';
 import { StoreCard } from '@/components/admin/StoreCard';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 export default function StoresPage() {
   const { user } = useAuth();
@@ -21,7 +21,7 @@ export default function StoresPage() {
 
   const loadStores = async () => {
     try {
-      const userStores = await storeService.getUserStores(user!.id);
+      const userStores = await storeServiceNew.getUserStores(user!.id);
       setStores(userStores);
     } catch (error) {
       console.error('Erro ao carregar lojas:', error);

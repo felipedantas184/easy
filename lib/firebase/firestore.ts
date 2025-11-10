@@ -1,3 +1,4 @@
+/**
 import {
   collection,
   doc,
@@ -438,4 +439,4 @@ export const discountService = {
     const docRef = doc(db, 'discountCoupons', couponId);
     await deleteDoc(docRef);
   },
-};
+}; */

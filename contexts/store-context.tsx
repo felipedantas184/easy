@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Store } from '@/types/store';
-import { storeService } from '@/lib/firebase/firestore';
+import { storeServiceNew } from '@/lib/firebase/firestore-new';
 
 interface StoreContextType {
   store: Store | null;
@@ -37,7 +37,7 @@ export function StoreProvider({
           return;
         }
 
-        const storeData = await storeService.getStoreBySlug(slug);
+        const storeData = await storeServiceNew.getStoreBySlug(slug);
         
         console.log('✅ StoreProvider: Loja encontrada:', storeData); // DEBUG
         

@@ -3,12 +3,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { ProductTable } from '@/components/admin/ProductTable';
 import { Button } from '@/components/ui/button';
-import { storeService } from '@/lib/firebase/firestore';
 import { Store } from '@/types/store';
 import Link from 'next/link';
 import { Plus, Package } from 'lucide-react';
 import { useProducts } from '@/hook/use-products';
 import { hasActivePromotion } from '@/lib/utils/product-helpers'; // ✅ IMPORTAR HELPER
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 export default function ProductsPage() {
   const { user } = useAuth();
@@ -27,7 +27,7 @@ export default function ProductsPage() {
     async function loadStores() {
       if (user) {
         try {
-          const userStores = await storeService.getUserStores(user.id);
+          const userStores = await storeServiceNew.getUserStores(user.id);
           setStores(userStores);
           
           // Selecionar primeira loja por padrão

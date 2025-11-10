@@ -341,77 +341,10 @@ export const productServiceNew = {
 
 // ==================== ORDERS WITH SUBCOLLECTIONS ====================
 
-export const orderServiceNew = {
-  async createOrder(storeId: string, orderData: Omit<Order, 'id' | 'createdAt'>): Promise<string> {
-    const storeRef = doc(db, 'stores', storeId);
-
-    const order: Omit<Order, 'id'> = {
-      ...orderData,
-      createdAt: serverTimestamp() as any,
-    };
-
-    const orderRef = await addDoc(collection(storeRef, 'orders'), order);
-    return orderRef.id;
-  },
-
-  async getOrder(storeId: string, orderId: string): Promise<Order | null> {
-    const storeRef = doc(db, 'stores', storeId);
-    const orderDoc = await getDoc(doc(storeRef, 'orders', orderId));
-
-    if (orderDoc.exists()) {
-      const data = orderDoc.data();
-      return {
-        id: orderDoc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-      } as Order;
-    }
-    return null;
-  },
-
-  async getStoreOrders(storeId: string): Promise<Order[]> {
-    const storeRef = doc(db, 'stores', storeId);
-    const q = query(
-      collection(storeRef, 'orders'),
-      orderBy('createdAt', 'desc')
-    );
-
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-      } as Order;
-    });
-  },
-
-  async updateOrderStatus(storeId: string, orderId: string, status: OrderStatus): Promise<void> {
-    const storeRef = doc(db, 'stores', storeId);
-    const orderRef = doc(storeRef, 'orders', orderId);
-    await updateDoc(orderRef, { status });
-  },
-
-  async updatePaymentStatus(storeId: string, orderId: string, paymentStatus: PaymentStatus): Promise<void> {
-    const storeRef = doc(db, 'stores', storeId);
-    const orderRef = doc(storeRef, 'orders', orderId);
-    await updateDoc(orderRef, { paymentStatus });
-  },
-
-  async updateOrder(storeId: string, orderId: string, updates: Partial<Order>): Promise<void> {
-    const storeRef = doc(db, 'stores', storeId);
-    const orderRef = doc(storeRef, 'orders', orderId);
-    await updateDoc(orderRef, updates);
-  },
-
-  async deleteOrder(storeId: string, orderId: string): Promise<void> {
-    const storeRef = doc(db, 'stores', storeId);
-    const orderRef = doc(storeRef, 'orders', orderId);
-    await deleteDoc(orderRef);
-  },
-};
+export { orderServiceNew } from './order-service-new' 
 
 // ==================== DISCOUNTS WITH SUBCOLLECTIONS ====================
 
 export { discountServiceNew } from './discount-service-new';
+
+export { storeServiceNew } from './store-service-new';

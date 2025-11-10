@@ -1,8 +1,8 @@
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { StoreFooter } from '@/components/store/StoreFooter';
 import { notFound } from 'next/navigation';
-import { storeService } from '@/lib/firebase/firestore';
 import { OrderConfirmation } from '@/components/checkout/OrderConfirmation';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 interface ConfirmationPageProps {
   params: Promise<{ slug: string }>;
@@ -20,7 +20,7 @@ export default async function ConfirmationPage({
     notFound();
   }
 
-  const store = await storeService.getStoreBySlug(slug);
+  const store = await storeServiceNew.getStoreBySlug(slug);
 
   if (!store) {
     notFound();

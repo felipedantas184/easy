@@ -3,8 +3,8 @@ import { StoreHeader } from '@/components/store/StoreHeader';
 import { StoreFooter } from '@/components/store/StoreFooter';
 import { ProductGrid } from '@/components/store/ProductGrid';
 import { notFound } from 'next/navigation';
-import { storeService } from '@/lib/firebase/firestore';
 import { Star, Shield, Truck, Clock, Zap, TrendingUp, Award, Users, ShoppingBag, MessageCircle, Lock } from 'lucide-react';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 interface StorePageProps {
   params: Promise<{ slug: string }>;
@@ -17,7 +17,7 @@ export default async function StorePage({ params }: StorePageProps) {
     notFound();
   }
 
-  const store = await storeService.getStoreBySlug(slug);
+  const store = await storeServiceNew.getStoreBySlug(slug);
 
   if (!store) {
     notFound();
@@ -341,7 +341,7 @@ export default async function StorePage({ params }: StorePageProps) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const store = await storeService.getStoreBySlug(slug);
+  const store = await storeServiceNew.getStoreBySlug(slug);
 
   if (!store) {
     return {

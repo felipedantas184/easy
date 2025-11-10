@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Store } from '@/types/store';
-import { storeService } from '@/lib/firebase/firestore';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 export function useStore(slug: string) {
   const [store, setStore] = useState<Store | null>(null);
@@ -13,7 +13,7 @@ export function useStore(slug: string) {
         setLoading(true);
         setError(null);
         
-        const storeData = await storeService.getStoreBySlug(slug);
+        const storeData = await storeServiceNew.getStoreBySlug(slug);
         
         if (!storeData) {
           setError('Loja não encontrada');

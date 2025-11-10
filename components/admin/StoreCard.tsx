@@ -1,7 +1,6 @@
 'use client';
 import { Store } from '@/types/store';
 import { Button } from '@/components/ui/button';
-import { storeService } from '@/lib/firebase/firestore';
 import { 
   Store as StoreIcon, 
   Edit, 
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 interface StoreCardProps {
   store: Store;
@@ -28,7 +28,7 @@ export function StoreCard({ store, onUpdate }: StoreCardProps) {
 
     setLoading(true);
     try {
-      await storeService.deleteStore(store.id);
+      await storeServiceNew.deleteStore(store.id);
       onUpdate();
     } catch (error) {
       console.error('Erro ao excluir loja:', error);

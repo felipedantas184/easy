@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { ProductForm } from '@/components/admin/ProductForm';
-import { productService } from '@/lib/firebase/firestore';
 import { Product } from '@/types/products';
+import { productServiceNew } from '@/lib/firebase/firestore-new';
 
 export default function EditProductPage() {
   const params = useParams();
@@ -18,7 +18,7 @@ export default function EditProductPage() {
 
   const loadProduct = async () => {
     try {
-      const productData = await productService.getProduct(productId);
+      const productData = await productServiceNew.getProduct(productId); //aqui há um erro de "Expected 2 arguments, but got 1.ts(2554)"
       setProduct(productData);
     } catch (error) {
       console.error('Erro ao carregar produto:', error);

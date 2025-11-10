@@ -5,13 +5,12 @@ import { Input } from '@/components/ui/input';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { VariantManager } from '@/components/admin/VariantManager';
 import { InventoryManager } from '@/components/admin/InventoryManager';
-import { productService, storeService } from '@/lib/firebase/firestore';
 import { Store } from '@/types/store';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { Product, ProductVariant, ProductImage } from '@/types';
 import { createDefaultVariant, getProductTotalStock } from '@/lib/utils/product-helpers';
-import { productServiceNew } from '@/lib/firebase/firestore-new';
+import { productServiceNew, storeServiceNew } from '@/lib/firebase/firestore-new';
 
 interface ProductFormProps {
   product?: Product;
@@ -72,7 +71,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     async function loadStores() {
       if (user) {
         try {
-          const userStores = await storeService.getUserStores(user.id);
+          const userStores = await storeServiceNew.getUserStores(user.id);
           setStores(userStores);
 
           if (product && !formData.storeId) {

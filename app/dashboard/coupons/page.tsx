@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { DiscountCoupon } from '@/types/discount';
-import { storeService } from '@/lib/firebase/firestore';
-import { discountServiceNew } from '@/lib/firebase/firestore-new';
+import { discountServiceNew, storeServiceNew } from '@/lib/firebase/firestore-new';
 import { Store } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { CouponTable } from '@/components/admin/CouponTable';
@@ -29,7 +28,7 @@ export default function CouponsPage() {
     async function loadStores() {
       if (user) {
         try {
-          const userStores = await storeService.getUserStores(user.id);
+          const userStores = await storeServiceNew.getUserStores(user.id);
           setStores(userStores);
           if (userStores.length > 0) {
             setSelectedStoreId(userStores[0].id);

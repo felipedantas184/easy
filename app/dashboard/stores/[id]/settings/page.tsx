@@ -2,10 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Store } from '@/types/store';
-import { storeService } from '@/lib/firebase/firestore';
 import { PixSettings } from '@/components/admin/PixSettings';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 export default function StoreSettingsPage() {
   const params = useParams();
@@ -21,7 +21,7 @@ export default function StoreSettingsPage() {
 
   const loadStore = async () => {
     try {
-      const storeData = await storeService.getStore(storeId);
+      const storeData = await storeServiceNew.getStore(storeId);
       setStore(storeData);
     } catch (error) {
       console.error('Erro ao carregar loja:', error);
@@ -35,7 +35,7 @@ export default function StoreSettingsPage() {
 
     setSaving(true);
     try {
-      await storeService.updateStore(store.id, updates);
+      await storeServiceNew.updateStore(store.id, updates);
       
       // Atualizar estado local
       setStore(prev => prev ? { ...prev, ...updates } : null);

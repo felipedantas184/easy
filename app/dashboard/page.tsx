@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Store, Package, ShoppingCart, Users, TrendingUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { storeService } from '@/lib/firebase/firestore';
-import { orderService } from '@/lib/firebase/firestore';
 import { Store as StoreType, Order } from '@/types';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
+import { orderServiceNew } from '@/lib/firebase/firestore-new';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -23,7 +23,7 @@ export default function DashboardPage() {
     async function loadData() {
       if (user) {
         try {
-          const userStores = await storeService.getUserStores(user.id);
+          const userStores = await storeServiceNew.getUserStores(user.id);
           setStores(userStores);
 
           // Carregar pedidos recentes e estatísticas
@@ -32,7 +32,7 @@ export default function DashboardPage() {
           let totalProducts = 0;
 
           for (const store of userStores) {
-            const storeOrders = await orderService.getStoreOrders(store.id);
+            const storeOrders = await orderServiceNew.getStoreOrders(store.id);
             allOrders = [...allOrders, ...storeOrders];
             
             // Calcular revenue

@@ -3,8 +3,7 @@ import { StoreHeader } from '@/components/store/StoreHeader';
 import { StoreFooter } from '@/components/store/StoreFooter';
 import { ProductDetails } from '@/components/product/ProductDeatils';
 import { notFound } from 'next/navigation';
-import { storeService } from '@/lib/firebase/firestore';
-import { productServiceNew } from '@/lib/firebase/firestore-new';
+import { productServiceNew, storeServiceNew } from '@/lib/firebase/firestore-new';
 
 interface ProductPageProps {
   params: Promise<{ slug: string; id: string }>;
@@ -18,7 +17,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   // ✅ CORREÇÃO: Buscar store primeiro, depois product
-  const store = await storeService.getStoreBySlug(slug);
+  const store = await storeServiceNew.getStoreBySlug(slug);
   
   if (!store) {
     notFound();
@@ -108,7 +107,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   try {
     // ✅ CORREÇÃO: Buscar store primeiro, depois product
-    const store = await storeService.getStoreBySlug(slug);
+    const store = await storeServiceNew.getStoreBySlug(slug);
     
     if (!store) {
       return {

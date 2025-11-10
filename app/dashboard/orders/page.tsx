@@ -2,12 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Order } from '@/types/order';
-import { storeService } from '@/lib/firebase/firestore';
-import { orderService } from '@/lib/firebase/firestore';
 import { Store } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { Eye, Package, Search } from 'lucide-react';
-import { orderServiceNew } from '@/lib/firebase/firestore-new';
+import { orderServiceNew } from '@/lib/firebase/order-service-new';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -15,6 +14,52 @@ export default function OrdersPage() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const confirmOrder = async (orderId: string) => {
+    try {
+      await orderServiceNew.confirmOrder(selectedStoreId, orderId);
+      const updatedOrders = await orderServiceNew.getStoreOrders(selectedStoreId);
+      setOrders(updatedOrders);
+      alert('Pedido confirmado e estoque atualizado!');
+    } catch (error) {
+      console.error('Erro ao confirmar pedido:', error);
+      alert('Erro ao confirmar pedido');
+    }
+  };
+
+  const cancelOrder = async (orderId: string) => {
+    if (!confirm('Tem certeza que deseja cancelar este pedido? O estoque será restaurado.')) {
+      return;
+    }
+
+    try {
+      await orderServiceNew.cancelOrder(selectedStoreId, orderId);
+      const updatedOrders = await orderServiceNew.getStoreOrders(selectedStoreId);
+      setOrders(updatedOrders);
+      alert('Pedido cancelado e estoque restaurado!');
+    } catch (error) {
+      console.error('Erro ao cancelar pedido:', error);
+      alert('Erro ao cancelar pedido');
+    }
+  };
+
+  useEffect(() => {
+    async function loadStores() {
+      if (user) {
+        try {
+          const userStores = await storeServiceNew.getUserStores(user.id);
+          setStores(userStores);
+          if (userStores.length > 0) {
+            setSelectedStoreId(userStores[0].id);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar lojas:', error);
+        }
+      }
+    }
+
+    loadStores();
+  }, [user]);
 
   useEffect(() => {
     async function loadOrders() {
@@ -223,14 +268,14 @@ export default function OrdersPage() {
                         <>
                           <Button
                             size="sm"
-                            onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                            onClick={() => confirmOrder(order.id)} // ✅ USAR confirmOrder
                           >
                             Confirmar Pedido
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateOrderStatus(order.id, 'cancelled')}
+                            onClick={() => cancelOrder(order.id)} // ✅ USAR cancelOrder
                           >
                             Cancelar
                           </Button>

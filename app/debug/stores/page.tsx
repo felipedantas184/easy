@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { storeService } from '@/lib/firebase/firestore';
 import { Store } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { collection, getDocs, query } from 'firebase/firestore';

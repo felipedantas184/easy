@@ -2,11 +2,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { storeService } from '@/lib/firebase/firestore';
 import { STORE_SLUG_REGEX } from '@/lib/utils/constants';
 import { Store, CreateStoreData } from '@/types/store';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 interface StoreFormProps {
   store?: Store;
@@ -71,7 +71,7 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
     }
 
     try {
-      const available = await storeService.isSlugAvailable(slug);
+      const available = await storeServiceNew.isSlugAvailable(slug);
       setSlugAvailable(available);
       
       if (errors.slug && available) {
@@ -114,10 +114,10 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
 
       if (store) {
         // Editar loja existente
-        await storeService.updateStore(store.id, storeData);
+        await storeServiceNew.updateStore(store.id, storeData);
       } else {
         // Criar nova loja
-        const storeId = await storeService.createStore(storeData, user.id);
+        const storeId = await storeServiceNew.createStore(storeData, user.id);
       }
 
       if (onSuccess) {

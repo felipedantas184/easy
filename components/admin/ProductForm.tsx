@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { Product, ProductVariant, ProductImage } from '@/types';
 import { createDefaultVariant, getProductTotalStock } from '@/lib/utils/product-helpers';
+import { productServiceNew } from '@/lib/firebase/firestore-new';
 
 interface ProductFormProps {
   product?: Product;
@@ -90,29 +91,41 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
   // Preencher form se editing
   useEffect(() => {
-    if (product) {
-      const imageUrls = product.images.map(img => img.url);
-      
-      setFormData({
-        storeId: product.storeId,
-        name: product.name,
-        description: product.description,
-        category: product.category,
-        images: imageUrls,
-        hasVariants: product.hasVariants,
-        variants: product.variants,
-        weight: product.weight?.toString() || '',
-        dimensions: {
-          length: product.dimensions?.length?.toString() || '',
-          width: product.dimensions?.width?.toString() || '',
-          height: product.dimensions?.height?.toString() || ''
-        },
-        seo: {
-          title: product.seo?.title || '',
-          description: product.seo?.description || ''
+    async function loadProduct() {
+      if (product) {
+        try {
+          // ✅ CORREÇÃO: Usar novo service com storeId
+          const productData = await productServiceNew.getProduct(product.storeId, product.id);
+          if (productData) {
+            const imageUrls = productData.images.map(img => img.url);
+
+            setFormData({
+              storeId: productData.storeId,
+              name: productData.name,
+              description: productData.description,
+              category: productData.category,
+              images: imageUrls,
+              hasVariants: productData.hasVariants,
+              variants: productData.variants,
+              weight: productData.weight?.toString() || '',
+              dimensions: {
+                length: productData.dimensions?.length?.toString() || '',
+                width: productData.dimensions?.width?.toString() || '',
+                height: productData.dimensions?.height?.toString() || ''
+              },
+              seo: {
+                title: productData.seo?.title || '',
+                description: productData.seo?.description || ''
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao carregar produto:', error);
         }
-      });
+      }
     }
+
+    loadProduct();
   }, [product]);
 
   const validateForm = () => {
@@ -147,7 +160,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           newErrors.variants = 'Cada variação deve ter pelo menos uma opção';
           break;
         }
-        
+
         for (const option of variant.options) {
           if (!option.name.trim()) {
             newErrors.variants = 'Todas as opções devem ter um nome';
@@ -195,7 +208,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         category: formData.category.trim(),
         images: productImages,
         hasVariants: formData.hasVariants,
-        variants: formData.variants,
+        variants: formData.variants, // Ainda usamos a estrutura antiga aqui
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions.length ? {
           length: parseFloat(formData.dimensions.length),
@@ -211,10 +224,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         updatedAt: new Date(),
       };
 
+      // ✅ ALTERAÇÃO: Usar novo service
       if (product) {
-        await productService.updateProduct(product.id, productData);
+        await productServiceNew.updateProduct(formData.storeId, product.id, productData);
       } else {
-        await productService.createProduct(productData, formData.storeId);
+        await productServiceNew.createProduct(productData, formData.storeId);
       }
 
       if (onSuccess) {
@@ -231,9 +245,15 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   };
 
   const handleVariantsChange = (variants: ProductVariant[]) => {
+    // Garantir que cada variante tenha ID único
+    const variantsWithIds = variants.map(variant => ({
+      ...variant,
+      id: variant.id || `variant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+
     setFormData(prev => ({
       ...prev,
-      variants,
+      variants: variantsWithIds,
     }));
   };
 
@@ -412,7 +432,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           hasVariants={formData.hasVariants}
           onChange={handleVariantsChange}
         />
-        
+
         {errors.variants && (
           <p className="text-sm text-red-600">{errors.variants}</p>
         )}
@@ -448,7 +468,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             {/* SEO */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Otimização para Buscas (SEO)</h3>
-              
+
               <div className="space-y-2">
                 <label htmlFor="seoTitle" className="text-sm font-medium">
                   Título SEO (opcional)

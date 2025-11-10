@@ -1,9 +1,9 @@
-// components/store/ProductGrid.tsx - VERSÃO MELHORADA
+// components/store/ProductGrid.tsx - VERSÃO CORRIGIDA
 'use client';
 import { useState, useEffect } from 'react';
 import { ProductCard } from '@/components/ui/product-card';
 import { Product } from '@/types';
-import { productService } from '@/lib/firebase/firestore';
+import { productServiceNew } from '@/lib/firebase/firestore-new';
 import { Filter, Grid, List, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -23,34 +23,42 @@ export function ProductGrid({ storeId }: ProductGridProps) {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showFilters, setShowFilters] = useState(false);
 
+  // ✅ CORREÇÃO: Uma única função loadProducts
+  const loadProducts = async () => {
+    if (!storeId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔄 ProductGrid: Buscando produtos para storeId:', storeId); // DEBUG
+
+      const storeProducts = await productServiceNew.getStoreProducts(storeId);
+      
+      console.log('✅ ProductGrid: Produtos encontrados:', storeProducts); // DEBUG
+
+      setProducts(storeProducts);
+      setFilteredProducts(storeProducts);
+    } catch (err) {
+      console.error('❌ ProductGrid: Erro ao carregar produtos:', err);
+      setError('Erro ao carregar produtos da loja');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadProducts = async () => {
-      if (!storeId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const storeProducts = await productService.getStoreProducts(storeId);
-        setProducts(storeProducts);
-        setFilteredProducts(storeProducts);
-      } catch (err) {
-        console.error('Erro ao carregar produtos:', err);
-        setError('Erro ao carregar produtos da loja');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadProducts();
   }, [storeId]);
 
-  // Ordenar produtos
+  // ✅ CORREÇÃO: Ordenar produtos corretamente
   useEffect(() => {
-    const sorted = [...filteredProducts].sort((a, b) => {
+    if (products.length === 0) return;
+
+    const sorted = [...products].sort((a, b) => {
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name);
@@ -67,12 +75,23 @@ export function ProductGrid({ storeId }: ProductGridProps) {
     setFilteredProducts(sorted);
   }, [sortBy, products]);
 
-  // Helper function para obter preço (simulada - você já tem essa função)
+  // Helper function para obter preço
   const getProductPrice = (product: Product) => {
-    // Esta função já existe no seu product-helpers
-    return product.hasVariants && product.variants && product.variants.length > 0
-      ? Math.min(...product.variants.flatMap(v => v.options.map(o => o.price)))
-      : 0;
+    if (product.hasVariants && product.variants && product.variants.length > 0) {
+      // Encontrar o menor preço entre todas as opções ativas
+      let minPrice = Infinity;
+      product.variants.forEach(variant => {
+        variant.options.forEach(option => {
+          if (option.isActive && option.price < minPrice) {
+            minPrice = option.price;
+          }
+        });
+      });
+      return minPrice !== Infinity ? minPrice : 0;
+    }
+    
+    // Produto sem variações
+    return product.variants?.[0]?.options?.[0]?.price || 0;
   };
 
   // Loading Skeleton melhorado
@@ -113,8 +132,6 @@ export function ProductGrid({ storeId }: ProductGridProps) {
     );
   }
 
-  // ... (mantém os estados de error e empty states existentes)
-
   if (error) {
     return (
       <div className="text-center py-12">
@@ -129,7 +146,7 @@ export function ProductGrid({ storeId }: ProductGridProps) {
             {error}
           </p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={loadProducts}
             className="text-blue-600 hover:text-blue-800 font-medium"
           >
             Tentar novamente
@@ -155,6 +172,13 @@ export function ProductGrid({ storeId }: ProductGridProps) {
               : 'Nenhum produto corresponde aos filtros aplicados.'
             }
           </p>
+          {products.length === 0 && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-500">
+                💡 Acesse o dashboard para adicionar produtos a esta loja.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

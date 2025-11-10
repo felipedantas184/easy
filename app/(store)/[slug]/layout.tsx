@@ -1,4 +1,7 @@
+// app/(store)/[slug]/layout.tsx - MODIFICAÇÃO
 import { StoreProvider } from '@/contexts/store-context';
+import { CartProvider } from '@/contexts/cart-context';
+import { CartStoreIntegration } from '@/contexts/cart-store-integration';
 
 interface StoreLayoutProps {
   children: React.ReactNode;
@@ -9,12 +12,14 @@ export default async function StoreLayout({
   children,
   params,
 }: StoreLayoutProps) {
-  // ✅ AGUARDAR params
   const { slug } = await params;
   
   return (
     <StoreProvider slug={slug}>
-      {children}
+      <CartProvider>
+        <CartStoreIntegration />
+        {children}
+      </CartProvider>
     </StoreProvider>
   );
 }

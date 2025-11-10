@@ -23,10 +23,10 @@ interface AddToCartButtonProps {
   onShowQuickView?: () => void;
 }
 
-export function AddToCartButton({ 
-  product, 
-  variant, 
-  className = '', 
+export function AddToCartButton({
+  product,
+  variant,
+  className = '',
   disabled = false,
   style,
   onAddToCart,
@@ -40,7 +40,7 @@ export function AddToCartButton({
   const totalStock = getProductTotalStock(product);
   const isOutOfStock = totalStock === 0;
   const hasVariants = product.hasVariants && product.variants && product.variants.length > 0;
-  
+
   const shouldShowQuickView = showQuickView && hasVariants && !variant;
 
   const handleAddToCart = async () => {
@@ -51,16 +51,25 @@ export function AddToCartButton({
       return;
     }
 
+    console.log('🛒 AddToCartButton: Adicionando ao carrinho', {
+      product: product.name,
+      variant
+    });
+
     setLoading(true);
-    
+
     const result = await addItem(product, 1, variant);
-    
+
+    console.log('✅ AddToCartButton: Resultado', result);
+
     if (result.success) {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
       onAddToCart?.();
+    } else {
+      console.error('❌ AddToCartButton: Erro', result.message);
     }
-    
+
     setLoading(false);
   };
 
@@ -83,9 +92,8 @@ export function AddToCartButton({
     <Button
       onClick={handleAddToCart}
       disabled={disabled || loading || isOutOfStock}
-      className={`relative overflow-hidden transition-all duration-300 ${
-        success ? 'scale-105 bg-green-600 hover:bg-green-700' : ''
-      } ${className}`}
+      className={`relative overflow-hidden transition-all duration-300 ${success ? 'scale-105 bg-green-600 hover:bg-green-700' : ''
+        } ${className}`}
       style={style}
     >
       {getButtonIcon()}

@@ -9,9 +9,10 @@ import { OrderSummary } from '@/components/checkout/OrderSummary';
 import { orderService } from '@/lib/firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { getProductPrice } from '@/lib/utils/product-helpers';
-import { 
-  User, Mail, Phone, MapPin, Home, Map, CreditCard, 
-  CheckCircle, ArrowLeft, Lock, Shield, Truck, Zap 
+import { orderServiceNew } from '@/lib/firebase/firestore-new';
+import {
+  User, Mail, Phone, MapPin, Home, Map, CreditCard,
+  CheckCircle, ArrowLeft, Lock, Shield, Truck, Zap
 } from 'lucide-react';
 
 interface CheckoutFormProps {
@@ -77,7 +78,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
 
   const handleSubmitInformation = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validateStep1()) {
       setCurrentStep(2);
     }
@@ -121,7 +122,8 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
         total: state.total,
       };
 
-      const orderId = await orderService.createOrder(orderData);
+      // ✅ ALTERAÇÃO: Usar orderServiceNew
+      const orderId = await orderServiceNew.createOrder(store.id, orderData);
       clearCart();
       router.push(`/${store.slug}/checkout/confirmation?orderId=${orderId}`);
 
@@ -148,7 +150,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
         <Button
           onClick={() => router.push(`/${store.slug}`)}
           className="px-8 py-3 text-lg font-semibold"
-          style={{ 
+          style={{
             backgroundColor: store.theme.primaryColor,
             background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
           }}
@@ -171,14 +173,12 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
         <div className="flex items-center space-x-8">
           {steps.map((step, index) => (
             <div key={step.number} className="flex items-center space-x-4">
-              <div className={`flex flex-col items-center ${
-                currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'
-              }`}>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                  currentStep >= step.number
+              <div className={`flex flex-col items-center ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'
+                }`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${currentStep >= step.number
                     ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
                     : 'border-gray-300 bg-white'
-                }`}>
+                  }`}>
                   {currentStep > step.number ? (
                     <CheckCircle size={20} />
                   ) : (
@@ -187,11 +187,10 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
                 </div>
                 <span className="text-sm font-medium mt-2">{step.title}</span>
               </div>
-              
+
               {index < steps.length - 1 && (
-                <div className={`w-16 h-0.5 transition-colors duration-300 ${
-                  currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
-                }`}></div>
+                <div className={`w-16 h-0.5 transition-colors duration-300 ${currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}></div>
               )}
             </div>
           ))}
@@ -356,7 +355,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
               <Button
                 type="submit"
                 className="w-full py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-                style={{ 
+                style={{
                   backgroundColor: store.theme.primaryColor,
                   background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
                 }}
@@ -446,7 +445,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
                   onClick={handlePlaceOrder}
                   className="w-full py-4 text-lg font-semibold rounded-xl shadow-2xl hover:shadow-xl transform hover:scale-105 transition-all duration-300"
                   disabled={loading}
-                  style={{ 
+                  style={{
                     backgroundColor: store.theme.primaryColor,
                     background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
                   }}

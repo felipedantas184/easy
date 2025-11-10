@@ -7,6 +7,7 @@ import { orderService } from '@/lib/firebase/firestore';
 import { Store } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { Eye, Package, Search } from 'lucide-react';
+import { orderServiceNew } from '@/lib/firebase/firestore-new';
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -16,22 +17,23 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadStores() {
-      if (user) {
+    async function loadOrders() {
+      if (selectedStoreId) {
         try {
-          const userStores = await storeService.getUserStores(user.id);
-          setStores(userStores);
-          if (userStores.length > 0) {
-            setSelectedStoreId(userStores[0].id);
-          }
+          setLoading(true);
+          // ✅ ALTERAÇÃO: Usar orderServiceNew
+          const storeOrders = await orderServiceNew.getStoreOrders(selectedStoreId);
+          setOrders(storeOrders);
         } catch (error) {
-          console.error('Erro ao carregar lojas:', error);
+          console.error('Erro ao carregar pedidos:', error);
+        } finally {
+          setLoading(false);
         }
       }
     }
 
-    loadStores();
-  }, [user]);
+    loadOrders();
+  }, [selectedStoreId]);
 
   useEffect(() => {
     async function loadOrders() {
@@ -82,9 +84,10 @@ export default function OrdersPage() {
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
-      await orderService.updateOrderStatus(orderId, newStatus);
+      // ✅ ALTERAÇÃO: Usar orderServiceNew com storeId
+      await orderServiceNew.updateOrderStatus(selectedStoreId, orderId, newStatus);
       // Recarregar pedidos
-      const updatedOrders = await orderService.getStoreOrders(selectedStoreId);
+      const updatedOrders = await orderServiceNew.getStoreOrders(selectedStoreId);
       setOrders(updatedOrders);
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
@@ -185,7 +188,7 @@ export default function OrdersPage() {
                         {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
-                    
+
                     <div className="text-right">
                       <p className="font-semibold text-lg">{formatPrice(order.total)}</p>
                       <div className="flex space-x-2 mt-1">
@@ -232,7 +235,7 @@ export default function OrdersPage() {
                         <p><strong>Endereço:</strong> {order.customerInfo.address}</p>
                       )}
                     </div>
-                    
+
                     <div className="flex space-x-2">
                       {order.status === 'pending' && (
                         <>
@@ -251,7 +254,7 @@ export default function OrdersPage() {
                           </Button>
                         </>
                       )}
-                      
+
                       {order.status === 'confirmed' && (
                         <Button
                           size="sm"
@@ -260,7 +263,7 @@ export default function OrdersPage() {
                           Em Preparação
                         </Button>
                       )}
-                      
+
                       {order.status === 'preparing' && (
                         <Button
                           size="sm"
@@ -269,7 +272,7 @@ export default function OrdersPage() {
                           Marcar como Enviado
                         </Button>
                       )}
-                      
+
                       {order.status === 'shipped' && (
                         <Button
                           size="sm"

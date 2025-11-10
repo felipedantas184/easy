@@ -1,10 +1,10 @@
-// app/(store)/[slug]/products/[id]/page.tsx - CORREÇÃO OPENGRAPH
+// app/(store)/[slug]/products/[id]/page.tsx - CORREÇÃO
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { StoreFooter } from '@/components/store/StoreFooter';
 import { ProductDetails } from '@/components/product/ProductDeatils';
 import { notFound } from 'next/navigation';
 import { storeService } from '@/lib/firebase/firestore';
-import { productService } from '@/lib/firebase/firestore';
+import { productServiceNew } from '@/lib/firebase/firestore-new';
 
 interface ProductPageProps {
   params: Promise<{ slug: string; id: string }>;
@@ -12,26 +12,26 @@ interface ProductPageProps {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug, id } = await params;
-  
+
   if (!slug || !id) {
     notFound();
   }
 
-  const [store, product] = await Promise.all([
-    storeService.getStoreBySlug(slug),
-    productService.getProduct(id)
-  ]);
-
-  if (!store || !product) {
+  // ✅ CORREÇÃO: Buscar store primeiro, depois product
+  const store = await storeService.getStoreBySlug(slug);
+  
+  if (!store) {
     notFound();
   }
 
-  if (product.storeId !== store.id) {
+  const product = await productServiceNew.getProduct(store.id, id);
+
+  if (!product || product.storeId !== store.id) {
     notFound();
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen flex flex-col bg-white"
       style={{
         '--primary-color': store.theme.primaryColor,
@@ -41,10 +41,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
       } as React.CSSProperties}
     >
       <StoreHeader />
-      
+
       <main className="flex-1">
         <ProductDetails store={store} product={product} />
-        
+
         {/* Product Social Proof Section */}
         <section className="border-t border-gray-100 bg-gray-50">
           <div className="container mx-auto px-4 py-12">
@@ -52,7 +52,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <h3 className="text-2xl font-bold text-gray-900 mb-6">
                 O que nossos clientes dizem
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Review 1 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -66,7 +66,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </p>
                   <div className="text-sm font-semibold text-gray-900">- Maria S.</div>
                 </div>
-                
+
                 {/* Review 2 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center space-x-1 mb-3">
@@ -79,7 +79,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </p>
                   <div className="text-sm font-semibold text-gray-900">- João P.</div>
                 </div>
-                
+
                 {/* Review 3 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center space-x-1 mb-3">
@@ -105,14 +105,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
-  
-  try {
-    const [store, product] = await Promise.all([
-      storeService.getStoreBySlug(slug),
-      productService.getProduct(id)
-    ]);
 
-    if (!store || !product) {
+  try {
+    // ✅ CORREÇÃO: Buscar store primeiro, depois product
+    const store = await storeService.getStoreBySlug(slug);
+    
+    if (!store) {
+      return {
+        title: 'Produto Não Encontrado',
+      };
+    }
+
+    const product = await productServiceNew.getProduct(store.id, id);
+
+    if (!product) {
       return {
         title: 'Produto Não Encontrado',
       };
@@ -136,7 +142,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         ] : [],
         url: `${process.env.NEXT_PUBLIC_APP_URL}/${store.slug}/products/${product.id}`,
         siteName: store.name,
-        // ✅ CORREÇÃO: Removido type inválido
       },
       twitter: {
         card: 'summary_large_image',
@@ -144,7 +149,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         description: product.description || `Produto disponível na ${store.name}`,
         images: mainImage ? [mainImage] : [],
       },
-      // ✅ NOVO: Meta tags adicionais para SEO
       keywords: `${product.name}, ${product.category}, ${store.name}, comprar online`,
       robots: 'index, follow',
     };

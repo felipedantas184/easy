@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Check, Clock, Download } from 'lucide-react';
 import Link from 'next/link';
 import { PixPayment } from './PixPayment';
+import { orderServiceNew } from '@/lib/firebase/firestore-new';
 
 interface OrderConfirmationProps {
   store: Store;
@@ -20,7 +21,8 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
   useEffect(() => {
     async function loadOrder() {
       try {
-        const orderData = await orderService.getOrder(orderId);
+        // ✅ ALTERAÇÃO: Usar orderServiceNew com storeId
+        const orderData = await orderServiceNew.getOrder(store.id, orderId);
         setOrder(orderData);
       } catch (error) {
         console.error('Erro ao carregar pedido:', error);
@@ -30,7 +32,7 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
     }
 
     loadOrder();
-  }, [orderId]);
+  }, [orderId, store.id]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {

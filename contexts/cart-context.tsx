@@ -1,9 +1,10 @@
 'use client';
 import { DiscountValidator } from '@/lib/discount/discount-validator';
 import { discountService, productService } from '@/lib/firebase/firestore';
-import { CartDiscount, Product } from '@/types';
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { CartDiscount, Product, VariantOption } from '@/types';
+import { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { getProductPrice, getProductTotalStock } from '@/lib/utils/product-helpers';
+import { discountServiceNew, productServiceNew } from '@/lib/firebase/firestore-new';
 
 export interface CartItem {
   product: Product;
@@ -35,6 +36,12 @@ interface CartContextType {
   removeDiscount: () => void;
   getFinalTotal: () => number;
   checkStock: (productId: string, variantId?: string, quantity?: number) => Promise<{ available: boolean; currentStock: number }>;
+  setStoreId?: (storeId: string) => void;
+}
+
+interface CartProviderProps {
+  children: React.ReactNode;
+  storeId?: string; // ✅ NOVO: storeId opcional para inicialização
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -127,8 +134,20 @@ function calculateTotals(items: CartItem[]): CartState {
 
 const CART_STORAGE_KEY = 'easy-platform-cart';
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
+export function CartProvider({ children, storeId }: CartProviderProps) {
   const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0, itemCount: 0 });
+  const [currentStoreId, setCurrentStoreId] = useState<string | undefined>(storeId);
+
+  useEffect(() => {
+    if (storeId) {
+      setCurrentStoreId(storeId);
+    }
+  }, [storeId]);
+
+  // ✅ NOVO: Função para definir storeId
+  const setStoreId = (storeId: string) => {
+    setCurrentStoreId(storeId);
+  };
 
   useEffect(() => {
     try {
@@ -150,64 +169,193 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state]);
 
-  const checkStock = async (productId: string, variantId?: string, quantity: number = 1): Promise<{ available: boolean; currentStock: number }> => {
+  const checkStock: CartContextType['checkStock'] = async (productId: string, variantId?: string, quantity: number = 1): Promise<{ available: boolean; currentStock: number }> => {
     try {
-      const product = await productService.getProduct(productId);
-      if (!product) {
+      console.log('🔍 checkStock: Iniciando verificação', {
+        productId,
+        variantId,
+        quantity,
+        currentStoreId
+      });
+
+      // ✅ CORREÇÃO: Verificar se temos storeId
+      if (!currentStoreId) {
+        console.log('❌ checkStock: StoreId não disponível no contexto');
         return { available: false, currentStock: 0 };
       }
 
-      if (variantId && product.hasVariants) {
+      // ✅ CORREÇÃO: Usar productServiceNew com storeId correto
+      const product = await productServiceNew.getProduct(currentStoreId, productId);
+
+      if (!product) {
+        console.log('❌ checkStock: Produto não encontrado');
+        return { available: false, currentStock: 0 };
+      }
+
+      console.log('📦 checkStock: Produto carregado', {
+        name: product.name,
+        hasVariants: product.hasVariants,
+        variantsCount: product.variants?.length || 0
+      });
+
+      // Resto da função permanece EXATAMENTE igual...
+      if (product.hasVariants && product.variants && product.variants.length > 0) {
+        console.log('🎯 checkStock: Produto tem variações');
+
+        let selectedOption: VariantOption | undefined;
+
         for (const variant of product.variants) {
-          const option = variant.options.find(opt => opt.id === variantId);
-          if (option) {
-            const currentStock = option.stock;
-            const cartQuantity = state.items.find(item => 
-              item.product.id === productId && 
-              item.selectedVariant?.optionId === variantId
-            )?.quantity || 0;
-            
-            const availableStock = currentStock - cartQuantity;
-            return { 
-              available: availableStock >= quantity, 
-              currentStock: availableStock 
+          selectedOption = variant.options.find(opt => opt.id === variantId);
+          if (selectedOption) break;
+        }
+
+        if (selectedOption) {
+          const currentStock = selectedOption.stock || 0;
+          const cartQuantity = state.items
+            .filter(item => item.product.id === productId)
+            .find(item => item.selectedVariant?.optionId === variantId)?.quantity || 0;
+
+          const availableStock = Math.max(0, currentStock - cartQuantity);
+
+          console.log('📊 checkStock: Resultado variação', {
+            optionName: selectedOption.name,
+            currentStock,
+            cartQuantity,
+            availableStock,
+            required: quantity,
+            available: availableStock >= quantity
+          });
+
+          return {
+            available: availableStock >= quantity,
+            currentStock: availableStock
+          };
+        } else {
+          console.log('⚠️ checkStock: Variação não encontrada, usando primeira opção');
+          const firstOption = product.variants[0]?.options[0];
+          if (firstOption) {
+            const currentStock = firstOption.stock || 0;
+            const cartQuantity = state.items
+              .filter(item => item.product.id === productId)
+              .find(item => !item.selectedVariant)?.quantity || 0;
+
+            const availableStock = Math.max(0, currentStock - cartQuantity);
+
+            return {
+              available: availableStock >= quantity,
+              currentStock: availableStock
             };
           }
         }
-      } else {
-        const currentStock = getProductTotalStock(product);
-        const cartQuantity = state.items.find(item => 
-          item.product.id === productId && 
-          !item.selectedVariant
-        )?.quantity || 0;
-        
-        const availableStock = currentStock - cartQuantity;
-        return { 
-          available: availableStock >= quantity, 
-          currentStock: availableStock 
-        };
       }
 
-      return { available: false, currentStock: 0 };
+      // Para produtos SEM variações
+      console.log('📦 checkStock: Produto sem variações');
+      const currentStock = getProductTotalStock(product);
+      const cartQuantity = state.items
+        .filter(item => item.product.id === productId)
+        .find(item => !item.selectedVariant)?.quantity || 0;
+
+      const availableStock = Math.max(0, currentStock - cartQuantity);
+
+      console.log('📊 checkStock: Resultado sem variações', {
+        currentStock,
+        cartQuantity,
+        availableStock,
+        required: quantity,
+        available: availableStock >= quantity
+      });
+
+      return {
+        available: availableStock >= quantity,
+        currentStock: availableStock
+      };
+
     } catch (error) {
-      console.error('Erro ao verificar estoque:', error);
+      console.error('❌ checkStock: Erro ao verificar estoque:', error);
       return { available: false, currentStock: 0 };
     }
   };
 
   const addItem: CartContextType['addItem'] = async (product, quantity = 1, selectedVariant) => {
+    try {
+      console.log('🛒 addItem: Iniciando adição', {
+        product: product.name,
+        productId: product.id,
+        quantity,
+        selectedVariant,
+        hasVariants: product.hasVariants
+      });
+
+      // ✅ CORREÇÃO: Usar checkStock corrigido
+      const stockCheck = await checkStock(
+        product.id,
+        selectedVariant?.optionId,
+        quantity
+      );
+
+      console.log('📊 addItem: Resultado verificação estoque', stockCheck);
+
+      if (!stockCheck.available) {
+        const message = stockCheck.currentStock === 0
+          ? 'Produto esgotado'
+          : `Apenas ${stockCheck.currentStock} unidades disponíveis`;
+
+        console.log('❌ addItem: Estoque insuficiente', { message });
+        return {
+          success: false,
+          message
+        };
+      }
+
+      // ✅ CORREÇÃO: Dispatch para adicionar item
+      dispatch({
+        type: 'ADD_ITEM',
+        payload: {
+          product,
+          quantity,
+          selectedVariant,
+        },
+      });
+
+      console.log('✅ addItem: Produto adicionado com sucesso');
+      return { success: true, message: 'Produto adicionado ao carrinho' };
+
+    } catch (error) {
+      console.error('❌ addItem: Erro inesperado:', error);
+      return {
+        success: false,
+        message: 'Erro ao adicionar produto ao carrinho'
+      };
+    }
+  };
+
+  /** ANTES DO TEMP 
+  const addItem: CartContextType['addItem'] = async (product, quantity = 1, selectedVariant) => {
+    console.log('🛒 addItem: Iniciando adição', {
+      product: product.name,
+      quantity,
+      selectedVariant,
+      hasVariants: product.hasVariants
+    });
+
     const stockCheck = await checkStock(
-      product.id, 
-      selectedVariant?.optionId, 
+      product.id,
+      selectedVariant?.optionId,
       quantity
     );
 
+    console.log('📊 addItem: Resultado checkStock', stockCheck);
+
     if (!stockCheck.available) {
-      return { 
-        success: false, 
-        message: stockCheck.currentStock === 0 
-          ? 'Produto esgotado' 
-          : `Apenas ${stockCheck.currentStock} unidades disponíveis` 
+      const message = stockCheck.currentStock === 0
+        ? 'Produto esgotado'
+        : `Apenas ${stockCheck.currentStock} unidades disponíveis`;
+
+      console.log('❌ addItem: Estoque insuficiente', { message });
+      return {
+        success: false,
+        message
       };
     }
 
@@ -220,8 +368,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       },
     });
 
+    console.log('✅ addItem: Produto adicionado com sucesso');
     return { success: true, message: 'Produto adicionado ao carrinho' };
-  };
+  };*/
 
   const updateQuantity: CartContextType['updateQuantity'] = async (productId, quantity, variantId) => {
     if (quantity <= 0) {
@@ -231,9 +380,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     const stockCheck = await checkStock(productId, variantId, quantity);
     if (!stockCheck.available) {
-      return { 
-        success: false, 
-        message: `Estoque insuficiente. Apenas ${stockCheck.currentStock} unidades disponíveis` 
+      return {
+        success: false,
+        message: `Estoque insuficiente. Apenas ${stockCheck.currentStock} unidades disponíveis`
       };
     }
 
@@ -261,14 +410,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const applyDiscount: CartContextType['applyDiscount'] = async (couponCode, storeId) => {
     try {
-      const coupon = await discountService.getCouponByCode(storeId, couponCode);
-      
+      // ✅ ALTERAÇÃO: Usar discountServiceNew
+      const coupon = await discountServiceNew.getCouponByCode(storeId, couponCode);
+
       if (!coupon) {
         return { success: false, message: 'Cupom não encontrado' };
       }
 
       const validation = DiscountValidator.validateCoupon(coupon, state.items, state.total);
-      
+
       if (!validation.isValid) {
         return { success: false, message: validation.error || 'Cupom inválido' };
       }
@@ -307,7 +457,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return Math.max(0, state.total - discountAmount);
   };
 
-  const value: CartContextType = {
+  const value: CartContextType & { setStoreId?: (storeId: string) => void } = {
     state,
     addItem,
     removeItem,
@@ -319,6 +469,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     removeDiscount,
     getFinalTotal,
     checkStock,
+    setStoreId, // ✅ NOVO: Expor setStoreId no contexto
   };
 
   return (

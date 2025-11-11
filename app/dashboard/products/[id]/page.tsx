@@ -1,24 +1,44 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { Product } from '@/types/products';
 import { productServiceNew } from '@/lib/firebase/firestore-new';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 export default function EditProductPage() {
   const params = useParams();
   const productId = params.id as string;
-  
+  const { user } = useAuth();
+
   const [product, setProduct] = useState<Product | null>(null);
+  const [storeId, setStoreId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadProduct();
-  }, [productId]);
+    if (user) {
+      loadStoreAndProduct();
+    }
+  }, [user, productId]);
 
-  const loadProduct = async () => {
+  const loadStoreAndProduct = async () => {
     try {
-      const productData = await productServiceNew.getProduct(productId); //aqui há um erro de "Expected 2 arguments, but got 1.ts(2554)"
+      // 1️⃣ Buscar lojas do usuário
+      const userStores = await storeServiceNew.getUserStores(user!.id);
+
+      if (!userStores || userStores.length === 0) {
+        console.warn('Nenhuma loja encontrada para este usuário.');
+        setLoading(false);
+        return;
+      }
+
+      // 2️⃣ Considerar a primeira loja
+      const firstStoreId = userStores[0].id;
+      setStoreId(firstStoreId);
+
+      // 3️⃣ Buscar o produto com base em storeId + productId
+      const productData = await productServiceNew.getProduct(firstStoreId, productId);
       setProduct(productData);
     } catch (error) {
       console.error('Erro ao carregar produto:', error);
@@ -68,7 +88,7 @@ export default function EditProductPage() {
       </div>
       
       <div className="bg-white rounded-lg border p-6">
-        <ProductForm product={product} onSuccess={loadProduct} />
+        <ProductForm product={product} onSuccess={loadStoreAndProduct} />
       </div>
     </div>
   );

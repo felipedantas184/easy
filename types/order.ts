@@ -1,3 +1,5 @@
+import { ShippingOption } from "./store";
+
 export interface Order {
   id: string;
   storeId: string;
@@ -7,6 +9,13 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   total: number;
+  // ✅ NOVO: Informações de frete
+  shipping?: {
+    method: string;
+    cost: number;
+    option: ShippingOption;
+    estimatedDelivery: string;
+  };
   createdAt: Date;
 }
 

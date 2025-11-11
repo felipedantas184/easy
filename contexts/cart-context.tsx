@@ -1,9 +1,9 @@
 'use client';
 import { DiscountValidator } from '@/lib/discount/discount-validator';
-import { CartDiscount, Order, Product, VariantOption } from '@/types';
+import { CartDiscount, Order, Product, ShippingOption, VariantOption } from '@/types';
 import { createContext, useContext, useReducer, useEffect, useState, useCallback } from 'react';
 import { getProductPrice, getProductTotalStock } from '@/lib/utils/product-helpers';
-import { discountServiceNew, productServiceNew } from '@/lib/firebase/firestore-new';
+import { discountServiceNew, productServiceNew, storeServiceNew } from '@/lib/firebase/firestore-new';
 import { orderServiceNew } from '@/lib/firebase/order-service-new';
 import {
   serializeCart,
@@ -11,6 +11,7 @@ import {
   validateCartItem,
   clearCorruptedCart
 } from '@/lib/utils/cart-helpers';
+import { shippingService } from '@/lib/firebase/shipping-service';
 
 export interface CartItem {
   product: Product;
@@ -29,6 +30,13 @@ interface CartState {
   itemCount: number;
   discount?: CartDiscount;
   storeId?: string;
+  // ✅ NOVO: Estado do frete
+  shipping?: {
+    selectedOption?: ShippingOption;
+    options: ShippingOption[];
+    destinationState?: string;
+    totalWeight: number;
+  };
 }
 
 interface CartContextType {
@@ -45,6 +53,11 @@ interface CartContextType {
   checkStock: (productId: string, variantId?: string, quantity?: number) => Promise<{ available: boolean; currentStock: number }>;
   setStoreId: (storeId: string) => void;
   createOrder: (orderData: Omit<Order, 'id' | 'createdAt'>) => Promise<{ success: boolean; orderId?: string; message: string }>;
+  calculateShipping: (destinationState: string) => Promise<ShippingOption[]>;
+  selectShipping: (shippingOption: ShippingOption) => void;
+  getShippingOptions: () => ShippingOption[];
+  getSelectedShipping: () => ShippingOption | undefined;
+  getTotalWithShipping: () => number;
 }
 
 interface CartProviderProps {
@@ -62,7 +75,10 @@ type CartAction =
   | { type: 'LOAD_CART'; payload: CartState }
   | { type: 'APPLY_DISCOUNT'; payload: CartDiscount }
   | { type: 'REMOVE_DISCOUNT' }
-  | { type: 'SET_STORE_ID'; payload: string };
+  | { type: 'SET_STORE_ID'; payload: string }
+  | { type: 'SET_SHIPPING_OPTIONS'; payload: ShippingOption[] }
+  | { type: 'SELECT_SHIPPING'; payload: ShippingOption }
+  | { type: 'SET_DESTINATION_STATE'; payload: string };
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
@@ -111,6 +127,43 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case 'LOAD_CART':
       return action.payload;
 
+    case 'SET_SHIPPING_OPTIONS':
+      return {
+        ...state,
+        shipping: {
+          // ✅ CORREÇÃO: Garantir que options sempre seja array
+          options: action.payload,
+          totalWeight: state.shipping?.totalWeight || calculateTotalWeight(state.items),
+          // ✅ CORREÇÃO: Manter outros valores existentes
+          selectedOption: state.shipping?.selectedOption,
+          destinationState: state.shipping?.destinationState
+        }
+      };
+
+    case 'SELECT_SHIPPING':
+      return {
+        ...state,
+        shipping: {
+          // ✅ CORREÇÃO: Garantir que options sempre exista
+          options: state.shipping?.options || [],
+          totalWeight: state.shipping?.totalWeight || calculateTotalWeight(state.items),
+          selectedOption: action.payload,
+          destinationState: state.shipping?.destinationState
+        }
+      };
+
+    case 'SET_DESTINATION_STATE':
+      return {
+        ...state,
+        shipping: {
+          // ✅ CORREÇÃO: Garantir estrutura completa
+          options: state.shipping?.options || [],
+          totalWeight: state.shipping?.totalWeight || calculateTotalWeight(state.items),
+          selectedOption: state.shipping?.selectedOption,
+          destinationState: action.payload
+        }
+      };
+
     case 'APPLY_DISCOUNT':
       return {
         ...state,
@@ -144,6 +197,13 @@ function calculateTotals(state: CartState): CartState {
   return { ...state, total, itemCount };
 }
 
+function calculateTotalWeight(items: CartItem[]): number {
+  return items.reduce((total, item) => {
+    const itemWeight = item.product.weight || 0;
+    return total + (itemWeight * item.quantity);
+  }, 0);
+}
+
 const CART_STORAGE_KEY = 'easy-platform-cart';
 
 export function CartProvider({ children, storeId }: CartProviderProps) {
@@ -151,7 +211,12 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     items: [],
     total: 0,
     itemCount: 0,
-    storeId
+    storeId,
+    // ✅ ADICIONAR: Estado inicial completo para shipping
+    shipping: {
+      options: [],
+      totalWeight: 0
+    }
   });
 
   const [isInitialized, setIsInitialized] = useState(false);
@@ -429,12 +494,69 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     dispatch({ type: 'REMOVE_DISCOUNT' });
   }, []);
 
+  const calculateShipping = useCallback(async (destinationState: string): Promise<ShippingOption[]> => {
+    try {
+      if (!state.storeId) {
+        console.error('Store ID não definido para cálculo de frete');
+        return [];
+      }
+
+      // Buscar configurações de frete da loja
+      const store = await storeServiceNew.getStore(state.storeId);
+      if (!store) {
+        console.error('Loja não encontrada para cálculo de frete');
+        return [];
+      }
+
+      const shippingSettings = store.settings.shippingSettings;
+
+      // Calcular peso total do carrinho
+      const totalWeight = calculateTotalWeight(state.items);
+
+      // Calcular opções de frete
+      const options = await shippingService.calculateShipping(
+        shippingSettings,
+        state.total,
+        destinationState,
+        totalWeight
+      );
+
+      dispatch({ type: 'SET_SHIPPING_OPTIONS', payload: options });
+      dispatch({ type: 'SET_DESTINATION_STATE', payload: destinationState });
+
+      return options;
+    } catch (error) {
+      console.error('Erro ao calcular frete:', error);
+      return [];
+    }
+  }, [state.storeId, state.items, state.total]);
+
+  const selectShipping = useCallback((shippingOption: ShippingOption) => {
+    dispatch({ type: 'SELECT_SHIPPING', payload: shippingOption });
+  }, []);
+
+  const getShippingOptions = useCallback(() => {
+    return state.shipping?.options || [];
+  }, [state.shipping?.options]);
+
+  const getSelectedShipping = useCallback(() => {
+    return state.shipping?.selectedOption;
+  }, [state.shipping?.selectedOption]);
+
+
+
   const getItemCount = useCallback(() => state.itemCount, [state.itemCount]);
   const getTotalPrice = useCallback(() => state.total, [state.total]);
   const getFinalTotal = useCallback(() => {
     const discountAmount = state.discount?.discountAmount || 0;
     return Math.max(0, state.total - discountAmount);
   }, [state.total, state.discount]);
+
+  const getTotalWithShipping = useCallback(() => {
+    const baseTotal = getFinalTotal();
+    const shippingCost = state.shipping?.selectedOption?.price || 0;
+    return baseTotal + shippingCost;
+  }, [getFinalTotal, state.shipping?.selectedOption]);
 
   const value: CartContextType = {
     state,
@@ -450,6 +572,11 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     checkStock,
     setStoreId,
     createOrder,
+    calculateShipping,
+    selectShipping,
+    getShippingOptions,
+    getSelectedShipping,
+    getTotalWithShipping,
   };
 
   return (

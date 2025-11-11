@@ -1,16 +1,15 @@
-// components/checkout/CheckoutForm.tsx - REDESIGN COMPLETO
+// components/checkout/CheckoutForm.tsx - VERSÃO FINAL
 'use client';
-import { useState } from 'react';
-import { Store } from '@/types/store';
+import { useEffect, useState } from 'react';
+import { ShippingOption, Store } from '@/types/store';
 import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { OrderSummary } from '@/components/checkout/OrderSummary';
 import { useRouter } from 'next/navigation';
 import { getProductPrice } from '@/lib/utils/product-helpers';
 import {
   User, Mail, Phone, MapPin, Home, Map, CreditCard,
-  CheckCircle, ArrowLeft, Lock, Shield, Truck, Zap
+  CheckCircle, ArrowLeft, Lock, Shield, Truck, Zap, Loader2
 } from 'lucide-react';
 
 interface CheckoutFormProps {
@@ -22,7 +21,12 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
     state,
     clearCart,
     getFinalTotal,
-    createOrder
+    createOrder,
+    calculateShipping,
+    selectShipping,
+    getShippingOptions,
+    getSelectedShipping,
+    getTotalWithShipping
   } = useCart();
 
   const router = useRouter();
@@ -40,6 +44,37 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [calculatingShipping, setCalculatingShipping] = useState(false);
+  const [shippingError, setShippingError] = useState<string>('');
+
+  // ✅ OBTER opções de frete do contexto (já calculadas)
+  const shippingOptions = getShippingOptions();
+  const selectedShipping = getSelectedShipping();
+
+  // ✅ CALCULAR FRETE automaticamente quando estado for preenchido
+  useEffect(() => {
+    const calculateShippingIfNeeded = async () => {
+      if (customerInfo.state && customerInfo.state.length === 2 && store.settings.shippingSettings?.enabled) {
+        setCalculatingShipping(true);
+        setShippingError('');
+
+        try {
+          const options = await calculateShipping(customerInfo.state);
+
+          if (options.length === 0) {
+            setShippingError('Nenhuma opção de frete disponível para este estado');
+          }
+        } catch (error) {
+          console.error('Erro ao calcular frete:', error);
+          setShippingError('Erro ao calcular frete. Tente novamente.');
+        } finally {
+          setCalculatingShipping(false);
+        }
+      }
+    };
+
+    calculateShippingIfNeeded();
+  }, [customerInfo.state, store.settings.shippingSettings?.enabled, calculateShipping]);
 
   const validateStep1 = () => {
     const errors: Record<string, string> = {};
@@ -80,6 +115,10 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
     }
   };
 
+  const handleShippingChange = (option: ShippingOption) => {
+    selectShipping(option);
+  };
+
   const handleSubmitInformation = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -91,6 +130,12 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
   const handlePlaceOrder = async () => {
     if (state.items.length === 0) {
       alert('Seu carrinho está vazio');
+      return;
+    }
+
+    // ✅ VALIDAR FRETE antes de finalizar pedido
+    if (store.settings.shippingSettings?.enabled && !selectedShipping) {
+      alert('Por favor, selecione uma opção de frete');
       return;
     }
 
@@ -123,10 +168,15 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
         status: 'pending' as const,
         paymentMethod: 'pix' as const,
         paymentStatus: 'pending' as const,
-        total: getFinalTotal(),
+        total: getTotalWithShipping(), // ✅ USAR TOTAL COM FRETE
+        shipping: selectedShipping ? {
+          method: selectedShipping.name,
+          cost: selectedShipping.price,
+          option: selectedShipping,
+          estimatedDelivery: selectedShipping.deliveryDays
+        } : undefined
       };
 
-      // ✅ USAR NOVO MÉTODO DO CART CONTEXT
       const result = await createOrder(orderData);
 
       if (result.success && result.orderId) {
@@ -177,13 +227,15 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
 
   return (
     <div className="p-6 md:p-8">
-      {/* Progress Steps - Modern */}
+      {/* Progress Steps */}
       <div className="flex justify-center mb-8">
         <div className="flex items-center space-x-8">
-          {steps.map((step, index) => (
+          {[
+            { number: 1, title: 'Informações', icon: User },
+            { number: 2, title: 'Pagamento', icon: CreditCard },
+          ].map((step, index) => (
             <div key={step.number} className="flex items-center space-x-4">
-              <div className={`flex flex-col items-center ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'
-                }`}>
+              <div className={`flex flex-col items-center ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'}`}>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${currentStep >= step.number
                   ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
                   : 'border-gray-300 bg-white'
@@ -196,8 +248,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
                 </div>
                 <span className="text-sm font-medium mt-2">{step.title}</span>
               </div>
-
-              {index < steps.length - 1 && (
+              {index < 1 && (
                 <div className={`w-16 h-0.5 transition-colors duration-300 ${currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
                   }`}></div>
               )}
@@ -331,7 +382,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
                     <div className="space-y-3">
                       <label htmlFor="state" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
                         <Map size={16} />
-                        <span>Estado</span>
+                        <span>Estado *</span>
                       </label>
                       <Input
                         id="state"
@@ -339,8 +390,13 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
                         value={customerInfo.state}
                         onChange={handleInputChange}
                         className="h-12 text-lg"
-                        placeholder="UF"
+                        placeholder="SP"
+                        maxLength={2}
+                        required={store.settings.shippingSettings?.enabled}
                       />
+                      {formErrors.state && (
+                        <p className="text-red-500 text-sm">{formErrors.state}</p>
+                      )}
                     </div>
 
                     <div className="space-y-3">
@@ -360,6 +416,72 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
                   </div>
                 </div>
               </div>
+
+              {/* ✅ NOVA SEÇÃO: OPÇÕES DE FRETE */}
+              {store.settings.shippingSettings?.enabled && customerInfo.state && (
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-100">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Truck className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">Opções de Frete</h3>
+                      <p className="text-gray-600 text-sm">Escolha como deseja receber seu pedido</p>
+                    </div>
+                  </div>
+
+                  {calculatingShipping ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
+                      <span className="text-gray-600">Calculando opções de frete...</span>
+                    </div>
+                  ) : shippingError ? (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <p className="text-red-700">{shippingError}</p>
+                    </div>
+                  ) : shippingOptions.length > 0 ? (
+                    <div className="space-y-3">
+                      {shippingOptions.map((option) => (
+                        <div
+                          key={option.id}
+                          className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all ${selectedShipping?.id === option.id
+                            ? 'border-purple-500 bg-purple-50 shadow-sm'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                          onClick={() => handleShippingChange(option)}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedShipping?.id === option.id
+                              ? 'border-purple-500 bg-purple-500'
+                              : 'border-gray-300'
+                              }`}>
+                              {selectedShipping?.id === option.id && (
+                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">{option.name}</h4>
+                              <p className="text-sm text-gray-600">{option.deliveryDays}</p>
+                              {option.description && (
+                                <p className="text-xs text-gray-500 mt-1">{option.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900">
+                              {option.price === 0 ? 'Grátis' : `R$ ${option.price.toFixed(2)}`}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      Preencha o estado para ver as opções de frete
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Button
                 type="submit"

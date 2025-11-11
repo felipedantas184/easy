@@ -13,8 +13,9 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from './config';
-import { Store, CreateStoreData } from '@/types/store';
+import { Store, CreateStoreData, ShippingSettings } from '@/types/store';
 import { DEFAULT_STORE_THEME } from '@/lib/utils/constants';
+import { shippingService } from './shipping-service';
 
 export const storeServiceNew = {
   // Criar nova loja
@@ -41,6 +42,7 @@ export const storeServiceNew = {
           expirationTime: 30,
           allowMultipleKeys: true,
         },
+        shippingSettings: shippingService.getDefaultShippingSettings(), // ✅ NOVO
       },
       isActive: true,
       createdAt: serverTimestamp() as any,
@@ -152,4 +154,40 @@ export const storeServiceNew = {
     const querySnapshot = await getDocs(q);
     return querySnapshot.empty;
   },
+
+  /**
+   * Atualizar configurações de frete da loja
+   */
+  async updateShippingSettings(storeId: string, shippingSettings: ShippingSettings): Promise<void> {
+    try {
+      const storeRef = doc(db, 'stores', storeId);
+
+      // Validar configurações antes de salvar
+      const validation = shippingService.validateShippingSettings(shippingSettings);
+      if (!validation.isValid) {
+        throw new Error(`Configurações de frete inválidas: ${validation.errors.join(', ')}`);
+      }
+
+      await updateDoc(storeRef, {
+        'settings.shippingSettings': shippingSettings,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar configurações de frete:', error);
+      throw new Error('Falha ao atualizar configurações de frete');
+    }
+  },
+
+  /**
+   * Obter configurações de frete da loja
+   */
+  async getShippingSettings(storeId: string): Promise<ShippingSettings> {
+    try {
+      const store = await this.getStore(storeId);
+      return store?.settings.shippingSettings || shippingService.getDefaultShippingSettings();
+    } catch (error) {
+      console.error('Erro ao buscar configurações de frete:', error);
+      return shippingService.getDefaultShippingSettings();
+    }
+  }
 };

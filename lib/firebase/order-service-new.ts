@@ -23,14 +23,16 @@ export const orderServiceNew = {
 
       const order: Omit<Order, 'id'> = {
         ...orderData,
+        // ✅ INCLUIR frete no total final
+        total: orderData.shipping
+          ? orderData.total + orderData.shipping.cost
+          : orderData.total,
         createdAt: serverTimestamp() as any,
       };
 
       const orderRef = await addDoc(collection(storeRef, 'orders'), order);
 
-      // Atualizar estoque dos produtos/variantes
-      await this.updateInventoryOnOrder(storeId, orderData.items);
-
+      console.log('✅ OrderService: Pedido criado com frete:', orderData.shipping);
       return orderRef.id;
     } catch (error) {
       console.error('Erro ao criar pedido:', error);

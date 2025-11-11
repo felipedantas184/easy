@@ -45,6 +45,7 @@ export interface StoreSettings {
   orderConfirmationMessage?: string;
   maintenanceMode: boolean;
   pixSettings: PixSettings;
+  shippingSettings: ShippingSettings; // ✅ NOVO
 }
 
 export interface PixSettings {
@@ -59,4 +60,38 @@ export interface CreateStoreData {
   description?: string;
   primaryColor?: string;
   secondaryColor?: string;
+}
+
+export interface ShippingSettings {
+  enabled: boolean;
+  calculationMethod: 'fixed' | 'regional_table' | 'weight_based' | 'free';
+  freeShippingThreshold?: number;
+  fixedPrice?: number;
+  regionalTable?: ShippingRegion[];
+  weightBasedRates?: WeightBasedRate[];
+  pickupEnabled: boolean;
+  pickupMessage?: string;
+}
+
+export interface ShippingRegion {
+  id: string;
+  name: string;
+  states: string[];
+  price: number;
+  deliveryDays: string;
+}
+
+export interface WeightBasedRate {
+  id: string;
+  minWeight: number; // em kg
+  maxWeight: number; // em kg
+  price: number;
+}
+
+export interface ShippingOption {
+  id: string;
+  name: string;
+  price: number;
+  deliveryDays: string;
+  description?: string;
 }

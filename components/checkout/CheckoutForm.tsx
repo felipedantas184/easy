@@ -26,7 +26,9 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
     selectShipping,
     getShippingOptions,
     getSelectedShipping,
-    getTotalWithShipping
+    getTotalWithShipping,
+    validateOrderData,
+    getCartBreakdown
   } = useCart();
 
   const router = useRouter();
@@ -133,15 +135,21 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
       return;
     }
 
-    // ✅ VALIDAR FRETE antes de finalizar pedido
-    if (store.settings.shippingSettings?.enabled && !selectedShipping) {
-      alert('Por favor, selecione uma opção de frete');
+    // ✅ VALIDAÇÃO COMPLETA
+    const validation = validateOrderData(customerInfo, store); // ✅ Adicionar store como segundo parâmetro
+    if (!validation.isValid) {
+      alert(validation.errors.join('\n'));
       return;
     }
 
     setLoading(true);
 
     try {
+      // ✅ CALCULAR BREAKDOWN DETALHADO
+      const breakdown = getCartBreakdown();
+      const selectedShipping = getSelectedShipping();
+
+      // ✅ CORREÇÃO: Usar a interface CreateOrderData correta
       const orderData = {
         storeId: store.id,
         customerInfo: {
@@ -153,30 +161,52 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
           state: customerInfo.state?.trim() || '',
           zipCode: customerInfo.zipCode?.trim() || '',
         },
-        items: state.items.map(item => ({
-          productId: item.product.id,
-          productName: item.product.name,
-          variant: item.selectedVariant ? {
-            variantId: item.selectedVariant.variantId,
-            optionId: item.selectedVariant.optionId,
-            optionName: item.selectedVariant.optionName,
-            price: item.selectedVariant.price,
-          } : undefined,
-          quantity: item.quantity,
-          price: item.selectedVariant?.price || getProductPrice(item.product),
-        })),
-        status: 'pending' as const,
-        paymentMethod: 'pix' as const,
-        paymentStatus: 'pending' as const,
-        total: getTotalWithShipping(), // ✅ USAR TOTAL COM FRETE
+        items: state.items.map(item => {
+          const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
+          return {
+            productId: item.product.id,
+            productName: item.product.name,
+            variant: item.selectedVariant ? {
+              variantId: item.selectedVariant.variantId,
+              optionId: item.selectedVariant.optionId,
+              optionName: item.selectedVariant.optionName,
+              price: item.selectedVariant.price,
+            } : undefined,
+            quantity: item.quantity,
+            price: itemPrice,
+            total: itemPrice * item.quantity,
+          };
+        }),
         shipping: selectedShipping ? {
           method: selectedShipping.name,
           cost: selectedShipping.price,
           option: selectedShipping,
-          estimatedDelivery: selectedShipping.deliveryDays
-        } : undefined
+          estimatedDelivery: selectedShipping.deliveryDays,
+          address: {
+            street: customerInfo.address || '',
+            city: customerInfo.city || '',
+            state: customerInfo.state || '',
+            zipCode: customerInfo.zipCode || '',
+          }
+        } : undefined,
+        discount: state.discount?.applied ? {
+          couponCode: state.discount.couponCode,
+          discountAmount: state.discount.discountAmount,
+          discountType: state.discount.discountType,
+          originalTotal: breakdown.subtotal + (selectedShipping?.price || 0),
+          finalTotal: breakdown.total,
+        } : undefined,
+        breakdown: {
+          subtotal: breakdown.subtotal,
+          shippingCost: breakdown.shippingCost,
+          discountAmount: breakdown.discountAmount,
+          total: breakdown.total,
+        }
       };
 
+      console.log('📦 Criando pedido com dados:', orderData);
+
+      // ✅ CORREÇÃO: Chamar createOrder com dados compatíveis
       const result = await createOrder(orderData);
 
       if (result.success && result.orderId) {

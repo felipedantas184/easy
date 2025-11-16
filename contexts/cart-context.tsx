@@ -30,12 +30,25 @@ interface CartState {
   itemCount: number;
   discount?: CartDiscount;
   storeId?: string;
-  // ✅ NOVO: Estado do frete
   shipping?: {
     selectedOption?: ShippingOption;
     options: ShippingOption[];
     destinationState?: string;
     totalWeight: number;
+  };
+}
+
+interface CreateOrderParams {
+  storeId: string;
+  customerInfo: any;
+  items: any[];
+  shipping?: any;
+  discount?: any;
+  breakdown: {
+    subtotal: number;
+    shippingCost: number;
+    discountAmount: number;
+    total: number;
   };
 }
 
@@ -52,12 +65,26 @@ interface CartContextType {
   getFinalTotal: () => number;
   checkStock: (productId: string, variantId?: string, quantity?: number) => Promise<{ available: boolean; currentStock: number }>;
   setStoreId: (storeId: string) => void;
-  createOrder: (orderData: Omit<Order, 'id' | 'createdAt'>) => Promise<{ success: boolean; orderId?: string; message: string }>;
   calculateShipping: (destinationState: string) => Promise<ShippingOption[]>;
   selectShipping: (shippingOption: ShippingOption) => void;
   getShippingOptions: () => ShippingOption[];
   getSelectedShipping: () => ShippingOption | undefined;
   getTotalWithShipping: () => number;
+  getCartBreakdown: () => {
+    subtotal: number;
+    discountAmount: number;
+    shippingCost: number;
+    total: number;
+  };
+  validateOrderData: (customerInfo: any, store: any) => { // ✅ CORREÇÃO: Adicionar store como parâmetro
+    isValid: boolean;
+    errors: string[];
+  };
+  createOrder: (orderData: CreateOrderParams) => Promise<{ // ✅ CORREÇÃO: Usar CreateOrderParams
+    success: boolean;
+    orderId?: string;
+    message?: string;
+  }>;
 }
 
 interface CartProviderProps {
@@ -112,12 +139,21 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     }
 
     case 'UPDATE_QUANTITY': {
-      const newItems = state.items.map(item =>
-        item.product.id === action.payload.productId &&
-          item.selectedVariant?.optionId === action.payload.variantId
-          ? { ...item, quantity: action.payload.quantity }
-          : item
-      ).filter(item => item.quantity > 0);
+      // ✅ CORREÇÃO: Usar optionId em vez de variantId para encontrar o item
+      const newItems = state.items.map(item => {
+        // Comparar productId E optionId (que é único por variante)
+        if (item.product.id === action.payload.productId &&
+          item.selectedVariant?.optionId === action.payload.variantId) {
+          return { ...item, quantity: action.payload.quantity };
+        }
+        // ✅ CORREÇÃO: Também tratar produtos sem variantes
+        if (item.product.id === action.payload.productId &&
+          !item.selectedVariant && !action.payload.variantId) {
+          return { ...item, quantity: action.payload.quantity };
+        }
+        return item;
+      }).filter(item => item.quantity > 0);
+
       return calculateTotals({ ...state, items: newItems });
     }
 
@@ -131,10 +167,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return {
         ...state,
         shipping: {
-          // ✅ CORREÇÃO: Garantir que options sempre seja array
           options: action.payload,
           totalWeight: state.shipping?.totalWeight || calculateTotalWeight(state.items),
-          // ✅ CORREÇÃO: Manter outros valores existentes
           selectedOption: state.shipping?.selectedOption,
           destinationState: state.shipping?.destinationState
         }
@@ -144,7 +178,6 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return {
         ...state,
         shipping: {
-          // ✅ CORREÇÃO: Garantir que options sempre exista
           options: state.shipping?.options || [],
           totalWeight: state.shipping?.totalWeight || calculateTotalWeight(state.items),
           selectedOption: action.payload,
@@ -156,7 +189,6 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return {
         ...state,
         shipping: {
-          // ✅ CORREÇÃO: Garantir estrutura completa
           options: state.shipping?.options || [],
           totalWeight: state.shipping?.totalWeight || calculateTotalWeight(state.items),
           selectedOption: state.shipping?.selectedOption,
@@ -212,7 +244,6 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     total: 0,
     itemCount: 0,
     storeId,
-    // ✅ ADICIONAR: Estado inicial completo para shipping
     shipping: {
       options: [],
       totalWeight: 0
@@ -221,7 +252,7 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
 
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // ✅ CARREGAR CARRINHO DO LOCALSTORAGE (CORRIGIDO)
+  // ✅ CARREGAR CARRINHO DO LOCALSTORAGE
   useEffect(() => {
     try {
       console.log('🔄 CartProvider: Iniciando carregamento do carrinho...');
@@ -233,7 +264,6 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
 
         const cartData = deserializeCart(savedCart);
 
-        // Validar estrutura do carrinho
         if (cartData.items && Array.isArray(cartData.items)) {
           const validItems = cartData.items.filter(validateCartItem);
 
@@ -266,9 +296,8 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     }
   }, []);
 
-  // ✅ SALVAR CARRINHO NO LOCALSTORAGE (CORRIGIDO)
+  // ✅ SALVAR CARRINHO NO LOCALSTORAGE
   useEffect(() => {
-    // Só salva após a inicialização para evitar loop
     if (!isInitialized) return;
 
     try {
@@ -286,11 +315,12 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     }
   }, [state, isInitialized]);
 
-  // ✅ VERIFICAÇÃO DE ESTOQUE OTIMIZADA
+  // ✅ VERIFICAÇÃO DE ESTOQUE
   const checkStock = useCallback(async (
     productId: string,
     variantId?: string,
-    quantity: number = 1
+    quantity: number = 1,
+    isUpdate: boolean = false // ✅ NOVO: Flag para indicar se é atualização
   ): Promise<{ available: boolean; currentStock: number }> => {
     try {
       if (!state.storeId) {
@@ -302,28 +332,46 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
         return { available: false, currentStock: 0 };
       }
 
-      // Para produtos com variantes
       if (product.hasVariants && product.variants && product.variants.length > 0) {
         let selectedOption: VariantOption | undefined;
 
-        // Encontrar a opção selecionada
         for (const variant of product.variants) {
           selectedOption = variant.options.find(opt => opt.id === variantId);
           if (selectedOption) break;
         }
 
-        // Se não encontrou a variante específica, usar a primeira opção
         if (!selectedOption && product.variants[0]?.options[0]) {
           selectedOption = product.variants[0].options[0];
         }
 
         if (selectedOption) {
           const currentStock = selectedOption.stock || 0;
-          const cartQuantity = state.items
-            .filter(item => item.product.id === productId)
-            .find(item => item.selectedVariant?.optionId === (variantId || selectedOption?.id))?.quantity || 0;
+
+          // ✅ CORREÇÃO: Lógica diferente para adição vs atualização
+          let cartQuantity = 0;
+
+          if (isUpdate) {
+            // Para atualização: não subtrair do estoque (estamos substituindo a quantidade)
+            cartQuantity = 0;
+          } else {
+            // Para adição: subtrair o que já está no carrinho
+            cartQuantity = state.items
+              .filter(item => item.product.id === productId)
+              .find(item => item.selectedVariant?.optionId === (variantId || selectedOption?.id))?.quantity || 0;
+          }
 
           const availableStock = Math.max(0, currentStock - cartQuantity);
+
+          console.log('📊 Verificação de estoque:', {
+            productId,
+            variantId,
+            currentStock,
+            cartQuantity,
+            availableStock,
+            requestedQuantity: quantity,
+            isUpdate
+          });
+
           return {
             available: availableStock >= quantity,
             currentStock: availableStock
@@ -331,13 +379,28 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
         }
       }
 
-      // Para produtos sem variantes
+      // ✅ CORREÇÃO: Mesma lógica para produtos sem variantes
       const currentStock = getProductTotalStock(product);
-      const cartQuantity = state.items
-        .filter(item => item.product.id === productId)
-        .find(item => !item.selectedVariant)?.quantity || 0;
+
+      let cartQuantity = 0;
+      if (isUpdate) {
+        cartQuantity = 0;
+      } else {
+        cartQuantity = state.items
+          .filter(item => item.product.id === productId)
+          .find(item => !item.selectedVariant)?.quantity || 0;
+      }
 
       const availableStock = Math.max(0, currentStock - cartQuantity);
+
+      console.log('📊 Verificação de estoque (sem variantes):', {
+        productId,
+        currentStock,
+        cartQuantity,
+        availableStock,
+        requestedQuantity: quantity,
+        isUpdate
+      });
 
       return {
         available: availableStock >= quantity,
@@ -350,7 +413,7 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     }
   }, [state.storeId, state.items]);
 
-  // ✅ ADICIONAR ITEM COM VALIDAÇÃO
+  // ✅ ADICIONAR ITEM
   const addItem = useCallback(async (
     product: Product,
     quantity: number = 1,
@@ -394,7 +457,7 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
       return { success: true, message: 'Item removido' };
     }
 
-    const stockCheck = await checkStock(productId, variantId, quantity);
+    const stockCheck = await checkStock(productId, variantId, quantity, true);
     if (!stockCheck.available) {
       return {
         success: false,
@@ -410,38 +473,24 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     return { success: true, message: 'Quantidade atualizada' };
   }, [checkStock]);
 
-  // ✅ CRIAR PEDIDO
+  // ✅ CORREÇÃO: CRIAR PEDIDO COM PARÂMETRO ÚNICO
   const createOrder = useCallback(async (
-    orderData: Omit<Order, 'id' | 'createdAt'>
-  ): Promise<{ success: boolean; orderId?: string; message: string }> => {
+    orderData: CreateOrderParams // ✅ CORREÇÃO: Usar CreateOrderParams
+  ): Promise<{ success: boolean; orderId?: string; message?: string }> => {
     try {
-      if (!state.storeId) {
-        return { success: false, message: 'Store ID não definido' };
-      }
+      // ✅ CORREÇÃO: Chamar orderServiceNew.createOrder com apenas 1 parâmetro
+      const result = await orderServiceNew.createOrder(orderData);
 
-      // Validar estoque uma última vez antes de criar o pedido
-      for (const item of orderData.items) {
-        const stockCheck = await checkStock(
-          item.productId,
-          item.variant?.optionId,
-          item.quantity
-        );
-
-        if (!stockCheck.available) {
-          return {
-            success: false,
-            message: `Estoque insuficiente para ${item.productName}`
-          };
-        }
-      }
-
-      const orderId = await orderServiceNew.createOrder(state.storeId, orderData);
-      return { success: true, orderId, message: 'Pedido criado com sucesso' };
+      return {
+        success: result.success,
+        orderId: result.orderId,
+        message: result.error
+      };
     } catch (error) {
       console.error('Erro ao criar pedido:', error);
       return { success: false, message: 'Erro ao criar pedido' };
     }
-  }, [state.storeId, checkStock]);
+  }, []);
 
   // ✅ OUTRAS FUNÇÕES
   const removeItem = useCallback((productId: string, variantId?: string) => {
@@ -501,7 +550,6 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
         return [];
       }
 
-      // Buscar configurações de frete da loja
       const store = await storeServiceNew.getStore(state.storeId);
       if (!store) {
         console.error('Loja não encontrada para cálculo de frete');
@@ -509,11 +557,8 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
       }
 
       const shippingSettings = store.settings.shippingSettings;
-
-      // Calcular peso total do carrinho
       const totalWeight = calculateTotalWeight(state.items);
 
-      // Calcular opções de frete
       const options = await shippingService.calculateShipping(
         shippingSettings,
         state.total,
@@ -543,7 +588,57 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     return state.shipping?.selectedOption;
   }, [state.shipping?.selectedOption]);
 
+  const getCartBreakdown = () => {
+    const subtotal = state.items.reduce((sum, item) => {
+      const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
+      return sum + (itemPrice * item.quantity);
+    }, 0);
 
+    const discountAmount = state.discount?.discountAmount || 0;
+    const shippingCost = getSelectedShipping()?.price || 0;
+
+    const total = Math.max(0, subtotal - discountAmount + shippingCost);
+
+    return {
+      subtotal,
+      discountAmount,
+      shippingCost,
+      total
+    };
+  };
+
+  // ✅ CORREÇÃO: Função de validação com store como parâmetro
+  const validateOrderData = (customerInfo: any, store: any) => {
+    const errors: string[] = [];
+
+    if (state.items.length === 0) {
+      errors.push('O carrinho está vazio');
+    }
+
+    if (!customerInfo.name?.trim()) {
+      errors.push('Nome é obrigatório');
+    }
+
+    if (!customerInfo.email?.trim()) {
+      errors.push('Email é obrigatório');
+    } else if (!/\S+@\S+\.\S+/.test(customerInfo.email)) {
+      errors.push('Email inválido');
+    }
+
+    if (!customerInfo.phone?.trim()) {
+      errors.push('Telefone é obrigatório');
+    }
+
+    // ✅ CORREÇÃO: Usar store do parâmetro, não variável externa
+    if (store?.settings?.shippingSettings?.enabled && !getSelectedShipping()) {
+      errors.push('Selecione uma opção de frete');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  };
 
   const getItemCount = useCallback(() => state.itemCount, [state.itemCount]);
   const getTotalPrice = useCallback(() => state.total, [state.total]);
@@ -577,6 +672,8 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
     getShippingOptions,
     getSelectedShipping,
     getTotalWithShipping,
+    getCartBreakdown,
+    validateOrderData
   };
 
   return (

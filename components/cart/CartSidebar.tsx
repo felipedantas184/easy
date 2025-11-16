@@ -1,10 +1,11 @@
 'use client';
 import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
-import { X, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, Loader2 } from 'lucide-react';
 import { useStore } from '@/contexts/store-context';
 import Link from 'next/link';
 import { getProductPrice } from '@/lib/utils/product-helpers';
+import { useState } from 'react';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -14,12 +15,77 @@ interface CartSidebarProps {
 export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
   const { state, updateQuantity, removeItem, clearCart } = useCart();
   const { store } = useStore();
+  const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(price);
+  };
+
+  // ✅ CORREÇÃO: Função para atualizar quantidade com tratamento de loading
+  const handleUpdateQuantity = async (
+    productId: string,
+    newQuantity: number,
+    optionId?: string // ✅ MUDAR PARA optionId
+  ) => {
+    const itemKey = `${productId}-${optionId || 'no-variant'}`;
+
+    try {
+      setLoadingItems(prev => new Set(prev).add(itemKey));
+
+      const result = await updateQuantity(productId, newQuantity, optionId); // ✅ MUDAR PARA optionId
+
+      if (!result.success) {
+        alert(result.message);
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar quantidade:', error);
+      alert('Erro ao atualizar quantidade');
+    } finally {
+      setLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemKey);
+        return newSet;
+      });
+    }
+  };
+
+
+  // ✅ CORREÇÃO: Função para remover item
+  const handleRemoveItem = async (productId: string, variantId?: string) => {
+    const itemKey = `${productId}-${variantId || 'no-variant'}`;
+
+    try {
+      setLoadingItems(prev => new Set(prev).add(itemKey));
+
+      // Pequeno delay para feedback visual
+      await new Promise(resolve => setTimeout(resolve, 300));
+      removeItem(productId, variantId);
+
+    } catch (error) {
+      console.error('Erro ao remover item:', error);
+      alert('Erro ao remover item do carrinho');
+    } finally {
+      setLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemKey);
+        return newSet;
+      });
+    }
+  };
+
+  // ✅ CORREÇÃO: Função para limpar carrinho
+  const handleClearCart = async () => {
+    if (window.confirm('Tem certeza que deseja limpar o carrinho?')) {
+      try {
+        clearCart();
+      } catch (error) {
+        console.error('Erro ao limpar carrinho:', error);
+        alert('Erro ao limpar carrinho');
+      }
+    }
   };
 
   if (!isOpen) return null;
@@ -60,9 +126,22 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                 {state.items.map((item, index) => {
                   const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
                   const itemTotal = itemPrice * item.quantity;
+                  const itemKey = `${item.product.id}-${item.selectedVariant?.variantId || 'no-variant'}`;
+                  const isLoading = loadingItems.has(itemKey);
 
                   return (
-                    <div key={index} className="flex space-x-3 border rounded-lg p-3">
+                    <div
+                      key={index}
+                      className={`flex space-x-3 border rounded-lg p-3 relative ${isLoading ? 'opacity-50' : ''
+                        }`}
+                    >
+                      {/* Loading Overlay */}
+                      {isLoading && (
+                        <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center rounded-lg z-10">
+                          <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
+                        </div>
+                      )}
+
                       {/* Product Image */}
                       <img
                         src={item.product.images?.[0]?.url || '/images/placeholder-product.jpg'}
@@ -91,12 +170,13 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateQuantity(
+                            onClick={() => handleUpdateQuantity(
                               item.product.id,
                               item.quantity - 1,
-                              item.selectedVariant?.variantId
+                              item.selectedVariant?.optionId // ✅ MUDAR PARA optionId
                             )}
-                            disabled={item.quantity <= 1}
+                            disabled={item.quantity <= 1 || isLoading}
+                            className="w-8 h-8 p-0"
                           >
                             <Minus size={14} />
                           </Button>
@@ -108,11 +188,13 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateQuantity(
+                            onClick={() => handleUpdateQuantity(
                               item.product.id,
                               item.quantity + 1,
-                              item.selectedVariant?.variantId
+                              item.selectedVariant?.optionId // ✅ MUDAR PARA optionId
                             )}
+                            disabled={isLoading}
+                            className="w-8 h-8 p-0"
                           >
                             <Plus size={14} />
                           </Button>
@@ -120,14 +202,22 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeItem(
+                            onClick={() => handleRemoveItem(
                               item.product.id,
-                              item.selectedVariant?.variantId
+                              item.selectedVariant?.optionId // ✅ MUDAR PARA optionId
                             )}
-                            className="ml-auto text-red-600 hover:text-red-700"
+                            disabled={isLoading}
+                            className="ml-auto text-red-600 hover:text-red-700 w-8 h-8 p-0"
                           >
                             <X size={14} />
                           </Button>
+                        </div>
+
+                        {/* Item Total */}
+                        <div className="mt-2 text-right">
+                          <p className="text-sm font-semibold text-gray-900">
+                            Total: {formatPrice(itemTotal)}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -140,6 +230,20 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
           {/* Footer */}
           {state.items.length > 0 && (
             <div className="border-t p-4 space-y-4">
+              {/* Discount Display */}
+              {state.discount?.applied && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-green-700">
+                      Cupom {state.discount.couponCode} aplicado
+                    </span>
+                    <span className="text-green-700 font-semibold">
+                      - {formatPrice(state.discount.discountAmount)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Total */}
               <div className="flex justify-between items-center text-lg font-semibold">
                 <span>Total:</span>
@@ -164,7 +268,8 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={clearCart}
+                  onClick={handleClearCart}
+                  disabled={loadingItems.size > 0}
                 >
                   Limpar Carrinho
                 </Button>

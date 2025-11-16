@@ -12,47 +12,129 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from './config';
-import { Order, OrderStatus, PaymentStatus, OrderItem } from '@/types/order';
+import { Order, OrderStatus, PaymentStatus, OrderItem, CustomerInfo } from '@/types/order';
 import { inventoryServiceNew } from '../inventory/inventory-service-new';
+import { ShippingOption } from '@/types';
+
+interface CreateOrderData {
+  storeId: string;
+  customerInfo: CustomerInfo;
+  items: OrderItem[];
+  shipping?: {
+    method: string;
+    cost: number;
+    option: ShippingOption;
+    estimatedDelivery: string;
+    address?: {
+      street: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    };
+  };
+  discount?: {
+    couponCode: string;
+    discountAmount: number;
+    discountType: 'percentage' | 'fixed' | 'shipping';
+    originalTotal: number;
+    finalTotal: number;
+  };
+  breakdown: {
+    subtotal: number;
+    shippingCost: number;
+    discountAmount: number;
+    total: number;
+  };
+}
 
 export const orderServiceNew = {
   // Criar pedido na subcollection
-  async createOrder(storeId: string, orderData: Omit<Order, 'id' | 'createdAt'>): Promise<string> {
+  async createOrder(orderData: CreateOrderData): Promise<{ success: boolean; orderId?: string; error?: string }> {
     try {
-      const storeRef = doc(db, 'stores', storeId);
-
+      const { storeId, ...orderDataWithoutStoreId } = orderData;
+      
+      // ✅ CORREÇÃO: Criar objeto Order completo
       const order: Omit<Order, 'id'> = {
-        ...orderData,
-        // ✅ INCLUIR frete no total final
-        total: orderData.shipping
-          ? orderData.total + orderData.shipping.cost
-          : orderData.total,
-        createdAt: serverTimestamp() as any,
+        storeId,
+        customerInfo: orderData.customerInfo,
+        items: orderData.items,
+        status: 'pending',
+        paymentMethod: 'pix',
+        paymentStatus: 'pending',
+        total: orderData.breakdown.total,
+        shipping: orderData.shipping,
+        discount: orderData.discount,
+        breakdown: orderData.breakdown,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      const orderRef = await addDoc(collection(storeRef, 'orders'), order);
+      const ordersRef = collection(db, 'stores', storeId, 'orders');
+      const docRef = await addDoc(ordersRef, order);
 
-      console.log('✅ OrderService: Pedido criado com frete:', orderData.shipping);
-      return orderRef.id;
+      console.log('✅ Pedido criado com sucesso:', {
+        orderId: docRef.id,
+        total: order.total,
+        breakdown: order.breakdown,
+        discount: order.discount,
+        shipping: order.shipping
+      });
+
+      return { 
+        success: true, 
+        orderId: docRef.id 
+      };
     } catch (error) {
-      console.error('Erro ao criar pedido:', error);
-      throw new Error('Falha ao criar pedido');
+      console.error('❌ Erro ao criar pedido:', error);
+      return { 
+        success: false, 
+        error: 'Erro ao processar pedido' 
+      };
     }
   },
 
-  // Buscar pedido por ID
+  /**
+   * ✅ CORREÇÃO: Buscar pedido com fallbacks
+   */
   async getOrder(storeId: string, orderId: string): Promise<Order | null> {
     try {
-      const storeRef = doc(db, 'stores', storeId);
-      const orderDoc = await getDoc(doc(storeRef, 'orders', orderId));
+      const orderRef = doc(db, 'stores', storeId, 'orders', orderId);
+      const orderSnap = await getDoc(orderRef);
 
-      if (orderDoc.exists()) {
-        const data = orderDoc.data();
-        return {
-          id: orderDoc.id,
-          ...data,
+      if (orderSnap.exists()) {
+        const data = orderSnap.data();
+        
+        // ✅ CORREÇÃO: Garantir todos os campos com fallbacks
+        const order: Order = {
+          id: orderSnap.id,
+          storeId: data.storeId || storeId,
+          customerInfo: data.customerInfo || {},
+          items: data.items || [],
+          status: data.status || 'pending',
+          paymentMethod: data.paymentMethod || 'pix',
+          paymentStatus: data.paymentStatus || 'pending',
+          total: data.total || 0,
+          shipping: data.shipping,
+          discount: data.discount,
+          breakdown: data.breakdown || {
+            subtotal: data.total || 0,
+            shippingCost: data.shipping?.cost || 0,
+            discountAmount: data.discount?.discountAmount || 0,
+            total: data.total || 0
+          },
           createdAt: data.createdAt?.toDate() || new Date(),
-        } as Order;
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+
+        console.log('📦 Pedido carregado:', {
+          id: order.id,
+          total: order.total,
+          breakdown: order.breakdown,
+          discount: order.discount,
+          shipping: order.shipping
+        });
+
+        return order;
       }
       return null;
     } catch (error) {
@@ -61,32 +143,25 @@ export const orderServiceNew = {
     }
   },
 
-  // Buscar todos os pedidos da loja
-  async getStoreOrders(storeId: string, status?: OrderStatus): Promise<Order[]> {
+  async getStoreOrders(storeId: string): Promise<Order[]> {
     try {
-      const storeRef = doc(db, 'stores', storeId);
+      const ordersRef = collection(db, 'stores', storeId, 'orders');
+      const q = query(ordersRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
 
-      let ordersQuery;
-      if (status) {
-        ordersQuery = query(
-          collection(storeRef, 'orders'),
-          where('status', '==', status),
-          orderBy('createdAt', 'desc')
-        );
-      } else {
-        ordersQuery = query(
-          collection(storeRef, 'orders'),
-          orderBy('createdAt', 'desc')
-        );
-      }
-
-      const querySnapshot = await getDocs(ordersQuery);
       return querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
           createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+          breakdown: data.breakdown || {
+            subtotal: data.total || 0,
+            shippingCost: data.shipping?.cost || 0,
+            discountAmount: data.discount?.discountAmount || 0,
+            total: data.total || 0
+          }
         } as Order;
       });
     } catch (error) {
@@ -95,19 +170,16 @@ export const orderServiceNew = {
     }
   },
 
-  // Atualizar status do pedido
-  async updateOrderStatus(storeId: string, orderId: string, status: OrderStatus): Promise<void> {
+  async updateOrderStatus(storeId: string, orderId: string, status: Order['status']): Promise<void> {
     try {
-      const storeRef = doc(db, 'stores', storeId);
-      const orderRef = doc(storeRef, 'orders', orderId);
-
+      const orderRef = doc(db, 'stores', storeId, 'orders', orderId);
       await updateDoc(orderRef, {
         status,
-        updatedAt: serverTimestamp()
+        updatedAt: new Date(),
       });
     } catch (error) {
       console.error('Erro ao atualizar status do pedido:', error);
-      throw new Error('Falha ao atualizar status');
+      throw error;
     }
   },
 
@@ -193,44 +265,28 @@ export const orderServiceNew = {
 
   async confirmOrder(storeId: string, orderId: string): Promise<void> {
     try {
-      const order = await this.getOrder(storeId, orderId);
-      if (!order) {
-        throw new Error('Pedido não encontrado');
-      }
-
-      // ✅ ATUALIZAR ESTOQUE APÓS CONFIRMAÇÃO DO PEDIDO
-      await inventoryServiceNew.updateStockOnOrder(storeId, orderId, order.items);
-
-      // ✅ ATUALIZAR STATUS DO PEDIDO
-      await this.updateOrderStatus(storeId, orderId, 'confirmed');
-
-      console.log('✅ OrderService: Pedido confirmado e estoque atualizado');
+      const orderRef = doc(db, 'stores', storeId, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: 'confirmed',
+        paymentStatus: 'confirmed',
+        updatedAt: new Date(),
+      });
     } catch (error) {
-      console.error('❌ OrderService: Erro ao confirmar pedido:', error);
-      throw new Error('Falha ao confirmar pedido');
+      console.error('Erro ao confirmar pedido:', error);
+      throw error;
     }
   },
 
-  // ADICIONAR função para cancelar pedido com restauração de estoque
   async cancelOrder(storeId: string, orderId: string): Promise<void> {
     try {
-      const order = await this.getOrder(storeId, orderId);
-      if (!order) {
-        throw new Error('Pedido não encontrado');
-      }
-
-      // ✅ RESTAURAR ESTOQUE SE O PEDIDO JÁ FOI CONFIRMADO
-      if (order.status === 'confirmed' || order.status === 'preparing') {
-        await inventoryServiceNew.restoreStockOnCancel(storeId, orderId, order.items);
-      }
-
-      // ✅ ATUALIZAR STATUS DO PEDIDO
-      await this.updateOrderStatus(storeId, orderId, 'cancelled');
-
-      console.log('✅ OrderService: Pedido cancelado e estoque restaurado');
+      const orderRef = doc(db, 'stores', storeId, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: 'cancelled',
+        updatedAt: new Date(),
+      });
     } catch (error) {
-      console.error('❌ OrderService: Erro ao cancelar pedido:', error);
-      throw new Error('Falha ao cancelar pedido');
+      console.error('Erro ao cancelar pedido:', error);
+      throw error;
     }
   },
 

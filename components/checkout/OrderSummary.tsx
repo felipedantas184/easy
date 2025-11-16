@@ -10,9 +10,9 @@ interface OrderSummaryProps {
 }
 
 export function OrderSummary({ storeId }: OrderSummaryProps) {
-  const { 
-    state, 
-    getFinalTotal, 
+  const {
+    state,
+    getFinalTotal,
     getTotalWithShipping,
     getShippingOptions,
     getSelectedShipping,
@@ -57,11 +57,10 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
             {shippingOptions.map((option) => (
               <div
                 key={option.id}
-                className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${
-                  selectedShipping?.id === option.id
+                className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${selectedShipping?.id === option.id
                     ? 'border-blue-500 bg-blue-50 shadow-sm'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
+                  }`}
                 onClick={() => handleShippingChange(option)}
               >
                 <div className="flex-1">
@@ -129,29 +128,43 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
         )}
 
         {/* Frete */}
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Frete</span>
-          <span className="text-gray-900">
-            {selectedShipping 
-              ? (selectedShipping.price === 0 ? 'Grátis' : formatPrice(selectedShipping.price))
-              : shippingOptions.length > 0 
-                ? 'Selecione uma opção'
-                : 'A calcular'
-            }
-          </span>
-        </div>
+        {selectedShipping && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Frete ({selectedShipping.name})</span>
+            <span className="text-gray-900">
+              {selectedShipping.price === 0 ? 'Grátis' : formatPrice(selectedShipping.price)}
+            </span>
+          </div>
+        )}
 
-        <div className="flex justify-between text-lg font-semibold border-t pt-2">
+        {/* ✅ NOVO: Linha divisória e total */}
+        <div className="border-t pt-2"></div>
+        <div className="flex justify-between text-lg font-semibold">
           <span>Total</span>
           <span>{formatPrice(finalTotal)}</span>
         </div>
 
-        {/* Economia com Desconto */}
+        {/* ✅ MELHORADO: Economia com Desconto */}
         {discountAmount > 0 && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
-            <p className="text-sm text-green-700 text-center">
-              🎉 Você economizou {formatPrice(discountAmount)}
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-800">
+                  🎉 Você economizou {formatPrice(discountAmount)}
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  Cupom {state.discount?.couponCode} aplicado com sucesso
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-green-600 line-through">
+                  {formatPrice(subtotal + shippingAmount)}
+                </p>
+                <p className="text-sm font-medium text-green-800">
+                  {formatPrice(finalTotal)}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>

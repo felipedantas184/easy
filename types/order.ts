@@ -1,4 +1,5 @@
 import { ShippingOption } from "./store";
+import { DiscountCoupon } from "./discount";
 
 export interface Order {
   id: string;
@@ -9,14 +10,41 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   total: number;
-  // ✅ NOVO: Informações de frete
+  
+  // ✅ CORREÇÃO: Shipping agora é opcional e address é separado
   shipping?: {
     method: string;
     cost: number;
     option: ShippingOption;
     estimatedDelivery: string;
+    address?: { // ✅ TORNAR address OPCIONAL
+      street: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    };
   };
+  
+  // ✅ CORREÇÃO: Discount também opcional
+  discount?: {
+    couponCode: string;
+    discountAmount: number;
+    discountType: 'percentage' | 'fixed' | 'shipping';
+    originalTotal: number;
+    finalTotal: number;
+    couponDetails?: DiscountCoupon;
+  };
+  
+  // ✅ CORREÇÃO: Breakdown agora é opcional com valores padrão
+  breakdown?: {
+    subtotal: number;
+    shippingCost: number;
+    discountAmount: number;
+    total: number;
+  };
+  
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CustomerInfo {
@@ -40,15 +68,16 @@ export interface OrderItem {
   };
   quantity: number;
   price: number;
+  total?: number; // ✅ TORNAR total OPCIONAL para compatibilidade
 }
 
 export type OrderStatus = 
-  | 'pending'    // Aguardando confirmação
-  | 'confirmed'  // Pedido confirmado
-  | 'preparing'  // Em preparação
-  | 'shipped'    // Enviado
-  | 'delivered'  // Entregue
-  | 'cancelled'; // Cancelado
+  | 'pending'
+  | 'confirmed'
+  | 'preparing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
 
 export type PaymentMethod = 'pix' | 'credit_card' | 'bank_slip';
 export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';

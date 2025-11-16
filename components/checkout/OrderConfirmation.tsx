@@ -120,7 +120,7 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
         </div>
 
         {/* Itens do Pedido */}
-        <div className="border-t pt-4">
+        <div className="border-t pt-4 mb-4">
           <h3 className="font-medium mb-3">Itens do Pedido</h3>
           <div className="space-y-3">
             {order.items.map((item, index) => (
@@ -131,22 +131,53 @@ export function OrderConfirmation({ store, orderId }: OrderConfirmationProps) {
                     <p className="text-sm text-gray-600">{item.variant.optionName}</p>
                   )}
                   <p className="text-sm text-gray-500">
-                    Quantidade: {item.quantity}
+                    Quantidade: {item.quantity} × {formatPrice(item.price)}
                   </p>
                 </div>
                 <p className="font-medium">
-                  {formatPrice(item.price * item.quantity)}
+                  {formatPrice(item.total || item.price * item.quantity)}
                 </p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Total */}
-        <div className="border-t pt-4 mt-4">
-          <div className="flex justify-between items-center text-lg font-semibold">
-            <span>Total</span>
-            <span>{formatPrice(order.total)}</span>
+        {/* ✅ NOVO: Breakdown de Valores */}
+        <div className="border-t pt-4">
+          <h3 className="font-medium mb-3">Resumo de Valores</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Subtotal dos produtos:</span>
+              <span>{formatPrice(order.breakdown?.subtotal || order.total)}</span>
+            </div>
+
+            {order.shipping && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Frete ({order.shipping.method}):</span>
+                <span>{order.shipping.cost === 0 ? 'Grátis' : formatPrice(order.shipping.cost)}</span>
+              </div>
+            )}
+
+            {order.discount && order.discount.discountAmount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Desconto ({order.discount.couponCode}):</span>
+                <span>- {formatPrice(order.discount.discountAmount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-lg font-semibold border-t pt-2 mt-2">
+              <span>Total do pedido:</span>
+              <span>{formatPrice(order.total)}</span>
+            </div>
+
+            {/* ✅ NOVO: Informações de entrega */}
+            {order.shipping && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Previsão de entrega:</strong> {order.shipping.estimatedDelivery}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

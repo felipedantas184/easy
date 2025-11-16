@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Product, ProductVariant, ProductImage } from '@/types';
 import { createDefaultVariant, getProductTotalStock } from '@/lib/utils/product-helpers';
 import { productServiceNew, storeServiceNew } from '@/lib/firebase/firestore-new';
+import { generateSEOTitle, generateSEODescription, checkSEOOptimization } from '@/lib/utils/seo-helpers';
 
 interface ProductFormProps {
   product?: Product;
@@ -45,6 +46,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [autoSEO, setAutoSEO] = useState(true); // ✅ NOVO: Controle para SEO automático
 
   const [formData, setFormData] = useState<ProductFormData>({
     storeId: '',
@@ -54,17 +56,36 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     images: [],
     hasVariants: false,
     variants: [createDefaultVariant()],
-    weight: '',
+    weight: '1',
     dimensions: {
-      length: '',
-      width: '',
-      height: ''
+      length: '10',
+      width: '20',
+      height: '15'
     },
     seo: {
       title: '',
       description: ''
     }
   });
+
+  // ✅ NOVO: Efeito para preencher SEO automaticamente
+  useEffect(() => {
+    if (autoSEO && (formData.name || formData.description)) {
+      const newTitle = generateSEOTitle(formData.name);
+      const newDescription = generateSEODescription(formData.description);
+      
+      setFormData(prev => ({
+        ...prev,
+        seo: {
+          title: newTitle,
+          description: newDescription
+        }
+      }));
+    }
+  }, [formData.name, formData.description, autoSEO]);
+
+  // ✅ NOVO: Verificação de otimização SEO
+  const seoOptimization = checkSEOOptimization(formData.seo.title, formData.seo.description);
 
   // Carregar lojas do usuário
   useEffect(() => {
@@ -93,7 +114,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     async function loadProduct() {
       if (product) {
         try {
-          // ✅ CORREÇÃO: Usar novo service com storeId
           const productData = await productServiceNew.getProduct(product.storeId, product.id);
           if (productData) {
             const imageUrls = productData.images.map(img => img.url);
@@ -117,6 +137,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                 description: productData.seo?.description || ''
               }
             });
+
+            // ✅ NOVO: Desativar SEO automático se já tiver dados SEO personalizados
+            if (productData.seo?.title || productData.seo?.description) {
+              setAutoSEO(false);
+            }
           }
         } catch (error) {
           console.error('Erro ao carregar produto:', error);
@@ -136,10 +161,14 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
     if (!formData.name.trim()) {
       newErrors.name = 'Nome do produto é obrigatório';
+    } else if (formData.name.trim().length < 3) {
+      newErrors.name = 'Nome deve ter pelo menos 3 caracteres';
     }
 
     if (!formData.description.trim()) {
       newErrors.description = 'Descrição é obrigatória';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Descrição deve ter pelo menos 10 caracteres';
     }
 
     if (!formData.category.trim()) {
@@ -207,7 +236,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         category: formData.category.trim(),
         images: productImages,
         hasVariants: formData.hasVariants,
-        variants: formData.variants, // Ainda usamos a estrutura antiga aqui
+        variants: formData.variants,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions.length ? {
           length: parseFloat(formData.dimensions.length),
@@ -223,7 +252,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         updatedAt: new Date(),
       };
 
-      // ✅ ALTERAÇÃO: Usar novo service
       if (product) {
         await productServiceNew.updateProduct(formData.storeId, product.id, productData);
       } else {
@@ -244,7 +272,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   };
 
   const handleVariantsChange = (variants: ProductVariant[]) => {
-    // Garantir que cada variante tenha ID único
     const variantsWithIds = variants.map(variant => ({
       ...variant,
       id: variant.id || `variant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -258,19 +285,31 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
   const toggleVariants = () => {
     if (formData.hasVariants) {
-      // Desativando variações - voltar para variação padrão
       setFormData(prev => ({
         ...prev,
         hasVariants: false,
         variants: [createDefaultVariant()]
       }));
     } else {
-      // Ativando variações - manter as variações atuais
       setFormData(prev => ({
         ...prev,
         hasVariants: true,
       }));
     }
+  };
+
+  // ✅ NOVO: Função para atualizar manualmente o SEO
+  const handleUpdateSEO = () => {
+    const newTitle = generateSEOTitle(formData.name);
+    const newDescription = generateSEODescription(formData.description);
+    
+    setFormData(prev => ({
+      ...prev,
+      seo: {
+        title: newTitle,
+        description: newDescription
+      }
+    }));
   };
 
   const totalStock = getProductTotalStock({
@@ -464,13 +503,57 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               totalStock={totalStock}
             />
 
-            {/* SEO */}
+            {/* SEO - MELHORADO */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Otimização para Buscas (SEO)</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Otimização para Buscas (SEO)</h3>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="autoSEO"
+                    checked={autoSEO}
+                    onChange={(e) => setAutoSEO(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="autoSEO" className="text-sm text-gray-700">
+                    Preencher automaticamente
+                  </label>
+                  {!autoSEO && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleUpdateSEO}
+                    >
+                      Gerar SEO
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Indicadores de Otimização */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`p-3 rounded-lg border ${
+                  seoOptimization.title.isValid ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                }`}>
+                  <div className="text-sm font-medium mb-1">Título SEO</div>
+                  <div className={`text-xs ${seoOptimization.title.isValid ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {formData.seo.title.length}/60 caracteres • {seoOptimization.title.message}
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${
+                  seoOptimization.description.isValid ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                }`}>
+                  <div className="text-sm font-medium mb-1">Descrição SEO</div>
+                  <div className={`text-xs ${seoOptimization.description.isValid ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {formData.seo.description.length}/160 caracteres • {seoOptimization.description.message}
+                  </div>
+                </div>
+              </div>
 
               <div className="space-y-2">
                 <label htmlFor="seoTitle" className="text-sm font-medium">
-                  Título SEO (opcional)
+                  Título SEO
                 </label>
                 <Input
                   id="seoTitle"
@@ -479,14 +562,14 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     ...prev,
                     seo: { ...prev.seo, title: e.target.value }
                   }))}
-                  placeholder="Deixe em branco para usar o nome do produto"
-                  disabled={loading}
+                  placeholder="Título otimizado para buscas..."
+                  disabled={loading || autoSEO}
                 />
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="seoDescription" className="text-sm font-medium">
-                  Descrição SEO (opcional)
+                  Descrição SEO
                 </label>
                 <textarea
                   id="seoDescription"
@@ -495,10 +578,10 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     ...prev,
                     seo: { ...prev.seo, description: e.target.value }
                   }))}
-                  placeholder="Deixe em branco para usar a descrição do produto"
+                  placeholder="Descrição otimizada para buscas..."
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-                  disabled={loading}
+                  disabled={loading || autoSEO}
                 />
               </div>
             </div>

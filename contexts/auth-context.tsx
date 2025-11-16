@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(user, { displayName });
-      router.push('/dashboard'); // Redireciona após registro bem-sucedido
+      router.push('/dashboard/stores/new'); // Redireciona após registro bem-sucedido
     } catch (error) {
       console.error('Erro no registro:', error);
       throw error; // Re-lança o erro para ser tratado no componente

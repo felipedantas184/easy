@@ -89,7 +89,7 @@ export default function StoresPage() {
             É rápido, fácil e não requer conhecimento técnico.
           </p>
           <Link href="/dashboard/stores/new">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+            <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600">
               <Plus className="w-5 h-5 mr-2" />
               Criar Primeira Loja
             </Button>

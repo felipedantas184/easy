@@ -63,23 +63,22 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
         }
       });
       setSlugAvailable(true);
-      setIsAutoGeneratingSlug(false); // Não auto-gerar slug ao editar
+      setIsAutoGeneratingSlug(false);
     }
   }, [store]);
 
-  // Função para gerar slug automaticamente - CORRIGIDA
   const generateSlug = (name: string) => {
     if (!name.trim()) return '';
     
     return name
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-      .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais, mantém espaços e hífens
-      .replace(/\s+/g, '-') // Substitui espaços por hífens
-      .replace(/-+/g, '-') // Remove hífens consecutivos
-      .replace(/^-+/, '') // Remove hífens do início
-      .replace(/-+$/, ''); // Remove hífens do final
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
   };
 
   const validateForm = () => {
@@ -151,7 +150,6 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
   const handleNameChange = (value: string) => {
     handleInputChange('name', value);
     
-    // Auto-gerar slug apenas se estiver no modo de criação e o slug não foi modificado manualmente
     if (isAutoGeneratingSlug && !store) {
       const newSlug = generateSlug(value);
       handleInputChange('slug', newSlug);
@@ -165,7 +163,6 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
     const slug = value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
     handleInputChange('slug', slug);
     
-    // Quando o usuário começa a digitar manualmente no slug, para de auto-gerar
     if (isAutoGeneratingSlug && value) {
       setIsAutoGeneratingSlug(false);
     }
@@ -203,7 +200,6 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
       };
 
       if (store) {
-        // Editar loja existente
         await storeServiceNew.updateStore(store.id, {
           ...storeData,
           theme: {
@@ -221,11 +217,9 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
         });
         setSuccess('Loja atualizada com sucesso!');
       } else {
-        // Criar nova loja
         const storeId = await storeServiceNew.createStore(storeData, user.id);
         setSuccess('Loja criada com sucesso! Redirecionando...');
         
-        // Redirecionar após 2 segundos
         setTimeout(() => {
           router.push('/dashboard/stores');
         }, 2000);
@@ -244,57 +238,55 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header com botão voltar */}
-      <div className="flex items-center gap-4">
+      {/* Header simplificado para mobile */}
+      <div className="flex items-center gap-3">
         <Button
           variant="ghost"
+          size="sm"
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2"
         >
-          <ArrowLeft size={20} />
-          Voltar
+          <ArrowLeft size={18} />
+          <span className="sr-only lg:not-sr-only lg:inline">Voltar</span>
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {store ? 'Editar Loja' : 'Criar Nova Loja'}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 truncate">
+            {store ? 'Editar Loja' : 'Nova Loja'}
           </h1>
-          <p className="text-gray-600 mt-1">
-            {store 
-              ? 'Atualize as informações da sua loja' 
-              : 'Configure sua nova loja virtual em poucos minutos'
-            }
+          <p className="text-gray-600 text-sm lg:text-base mt-1 truncate">
+            {store ? 'Atualize as informações' : 'Configure sua loja virtual'}
           </p>
         </div>
       </div>
 
       {/* Mensagens de status */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 lg:p-4">
           <p className="text-red-800 text-sm">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 lg:p-4">
           <p className="text-green-800 text-sm">{success}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
         {/* Informações Básicas */}
-        <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <StoreIcon size={20} className="text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Informações da Loja</h2>
+        <Card className="p-4 lg:p-6">
+          <div className="flex items-center gap-2 lg:gap-3 mb-3 lg:mb-4">
+            <StoreIcon size={18} className="text-blue-600 flex-shrink-0" />
+            <h2 className="text-base lg:text-lg font-semibold text-gray-900">Informações da Loja</h2>
           </div>
           
-          <p className="text-gray-600 mb-6">
-            Configure as informações básicas da sua loja virtual
+          <p className="text-gray-600 text-sm lg:text-base mb-4 lg:mb-6">
+            Configure as informações básicas
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-3 lg:space-y-4">
             {/* Nome da Loja */}
-            <div className="space-y-2">
+            <div className="space-y-1 lg:space-y-2">
               <label htmlFor="name" className="text-sm font-medium text-gray-700">
                 Nome da Loja *
               </label>
@@ -305,16 +297,17 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                 placeholder="Ex: Minha Loja Online"
                 disabled={loading}
                 required
+                className="text-sm lg:text-base"
               />
             </div>
 
             {/* Slug */}
-            <div className="space-y-2">
+            <div className="space-y-1 lg:space-y-2">
               <label htmlFor="slug" className="text-sm font-medium text-gray-700">
                 URL da Loja *
               </label>
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500 whitespace-nowrap">
+                <span className="text-sm text-gray-500 whitespace-nowrap flex-shrink-0">
                   easystore.com/
                 </span>
                 <Input
@@ -323,29 +316,24 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                   onChange={(e) => handleSlugChange(e.target.value)}
                   placeholder="minha-loja"
                   disabled={loading}
-                  className="flex-1"
+                  className="flex-1 text-sm lg:text-base"
                   required
                 />
               </div>
               {slugAvailable !== null && formData.slug && (
-                <p className={`text-sm ${
+                <p className={`text-xs lg:text-sm ${
                   slugAvailable ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {slugAvailable ? '✓ Slug disponível' : '✗ Slug indisponível'}
                 </p>
               )}
-              <p className="text-sm text-gray-500">
-                Use apenas letras minúsculas, números e hífens. Esta será a URL da sua loja.
+              <p className="text-xs lg:text-sm text-gray-500">
+                Use letras minúsculas, números e hífens
               </p>
-              {isAutoGeneratingSlug && !store && (
-                <p className="text-sm text-blue-600">
-                  ⓘ O slug está sendo gerado automaticamente. Edite se necessário.
-                </p>
-              )}
             </div>
 
             {/* Descrição */}
-            <div className="space-y-2">
+            <div className="space-y-1 lg:space-y-2">
               <label htmlFor="description" className="text-sm font-medium text-gray-700">
                 Descrição
               </label>
@@ -354,33 +342,33 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Descreva brevemente sua loja..."
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 text-sm lg:text-base"
                 disabled={loading}
               />
-              <p className="text-sm text-gray-500">
+              <p className="text-xs lg:text-sm text-gray-500">
                 {formData.description.length}/500 caracteres
               </p>
             </div>
           </div>
         </Card>
 
-        {/* Cores da Loja - AGORA COM 3 CORES NOVAMENTE */}
-        <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Palette size={20} className="text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Cores da Marca</h2>
+        {/* Cores da Loja - Otimizado para mobile */}
+        <Card className="p-4 lg:p-6">
+          <div className="flex items-center gap-2 lg:gap-3 mb-3 lg:mb-4">
+            <Palette size={18} className="text-blue-600 flex-shrink-0" />
+            <h2 className="text-base lg:text-lg font-semibold text-gray-900">Cores da Marca</h2>
           </div>
           
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 text-sm lg:text-base mb-4 lg:mb-6">
             Personalize as cores da sua loja
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
             {/* Cor Primária */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Cor Primária
+                Primária
               </label>
               <div className="space-y-2">
                 <input
@@ -388,15 +376,15 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                   value={formData.primaryColor}
                   onChange={(e) => handleInputChange('primaryColor', e.target.value)}
                   disabled={loading}
-                  className="w-full h-10 rounded border border-gray-300 cursor-pointer disabled:opacity-50"
+                  className="w-full h-8 lg:h-10 rounded border border-gray-300 cursor-pointer disabled:opacity-50"
                 />
               </div>
             </div>
 
             {/* Cor Secundária */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Cor Secundária
+                Secundária
               </label>
               <div className="space-y-2">
                 <input
@@ -404,15 +392,15 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                   value={formData.secondaryColor}
                   onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
                   disabled={loading}
-                  className="w-full h-10 rounded border border-gray-300 cursor-pointer disabled:opacity-50"
+                  className="w-full h-8 lg:h-10 rounded border border-gray-300 cursor-pointer disabled:opacity-50"
                 />
               </div>
             </div>
 
             {/* Cor de Fundo */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Cor de Fundo
+                Fundo
               </label>
               <div className="space-y-2">
                 <input
@@ -420,50 +408,48 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                   value={formData.backgroundColor}
                   onChange={(e) => handleInputChange('backgroundColor', e.target.value)}
                   disabled={loading}
-                  className="w-full h-10 rounded border border-gray-300 cursor-pointer disabled:opacity-50"
+                  className="w-full h-8 lg:h-10 rounded border border-gray-300 cursor-pointer disabled:opacity-50"
                 />
               </div>
             </div>
           </div>
 
           {/* Preview do Tema */}
-          <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-            <h4 className="font-medium text-gray-900 mb-3">Preview do Tema</h4>
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <div 
-                  className="h-6 rounded flex-1"
-                  style={{ backgroundColor: formData.primaryColor }}
-                ></div>
-                <div 
-                  className="h-6 rounded flex-1"
-                  style={{ backgroundColor: formData.secondaryColor }}
-                ></div>
-                <div 
-                  className="h-6 rounded flex-1 border border-gray-300"
-                  style={{ backgroundColor: formData.backgroundColor }}
-                ></div>
-              </div>
+          <div className="mt-4 lg:mt-6 p-3 lg:p-4 border rounded-lg bg-gray-50">
+            <h4 className="font-medium text-gray-900 text-sm lg:text-base mb-2 lg:mb-3">Preview</h4>
+            <div className="flex gap-1 lg:gap-2">
+              <div 
+                className="h-4 lg:h-6 rounded flex-1"
+                style={{ backgroundColor: formData.primaryColor }}
+              ></div>
+              <div 
+                className="h-4 lg:h-6 rounded flex-1"
+                style={{ backgroundColor: formData.secondaryColor }}
+              ></div>
+              <div 
+                className="h-4 lg:h-6 rounded flex-1 border border-gray-300"
+                style={{ backgroundColor: formData.backgroundColor }}
+              ></div>
             </div>
           </div>
         </Card>
 
         {/* Informações de Contato */}
-        <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Contact size={20} className="text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Informações de Contato</h2>
+        <Card className="p-4 lg:p-6">
+          <div className="flex items-center gap-2 lg:gap-3 mb-3 lg:mb-4">
+            <Contact size={18} className="text-blue-600 flex-shrink-0" />
+            <h2 className="text-base lg:text-lg font-semibold text-gray-900">Contato</h2>
           </div>
           
-          <p className="text-gray-600 mb-6">
-            Como seus clientes podem entrar em contato (opcional)
+          <p className="text-gray-600 text-sm lg:text-base mb-4 lg:mb-6">
+            Informações de contato (opcional)
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-3 lg:space-y-4">
             {/* Telefone */}
-            <div className="space-y-2">
+            <div className="space-y-1 lg:space-y-2">
               <label htmlFor="phone" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Phone size={16} />
+                <Phone size={14} className="flex-shrink-0" />
                 Telefone
               </label>
               <Input
@@ -473,13 +459,14 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                 value={formData.contact.phone}
                 onChange={(e) => handleContactChange('phone', e.target.value)}
                 disabled={loading}
+                className="text-sm lg:text-base"
               />
             </div>
 
             {/* WhatsApp */}
-            <div className="space-y-2">
+            <div className="space-y-1 lg:space-y-2">
               <label htmlFor="whatsapp" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <MessageCircle size={16} />
+                <MessageCircle size={14} className="flex-shrink-0" />
                 WhatsApp
               </label>
               <Input
@@ -489,13 +476,14 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                 value={formData.contact.whatsapp}
                 onChange={(e) => handleContactChange('whatsapp', e.target.value)}
                 disabled={loading}
+                className="text-sm lg:text-base"
               />
             </div>
 
             {/* Email */}
-            <div className="space-y-2">
+            <div className="space-y-1 lg:space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Mail size={16} />
+                <Mail size={14} className="flex-shrink-0" />
                 Email
               </label>
               <Input
@@ -505,34 +493,39 @@ export function StoreForm({ store, onSuccess }: StoreFormProps) {
                 value={formData.contact.email}
                 onChange={(e) => handleContactChange('email', e.target.value)}
                 disabled={loading}
+                className="text-sm lg:text-base"
               />
             </div>
           </div>
         </Card>
 
-        {/* Botões de Ação */}
-        <div className="flex gap-4 pt-4">
+        {/* Botões de Ação - Stack vertical em mobile */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <Button
             type="button"
             variant="outline"
             onClick={() => router.back()}
             disabled={loading}
-            className="flex-1"
+            className="flex-1 order-2 sm:order-1"
           >
             Cancelar
           </Button>
           <Button
             type="submit"
             disabled={loading || slugAvailable === false}
-            className="flex-1 bg-blue-600 hover:bg-blue-700"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 order-1 sm:order-2"
           >
             {loading ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>{store ? 'Salvando...' : 'Criando Loja...'}</span>
+                <span className="text-sm lg:text-base">
+                  {store ? 'Salvando...' : 'Criando...'}
+                </span>
               </div>
             ) : (
-              store ? 'Salvar Alterações' : 'Criar Loja'
+              <span className="text-sm lg:text-base">
+                {store ? 'Salvar' : 'Criar Loja'}
+              </span>
             )}
           </Button>
         </div>

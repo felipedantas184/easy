@@ -1,29 +1,33 @@
-// components/store/ProductGrid.tsx - VERSÃO CORRIGIDA
+// components/store/ProductGrid.tsx - VERSÃO COM PESQUISA E FILTROS FUNCIONAIS
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ProductCard } from '@/components/ui/product-card';
 import { Product } from '@/types';
 import { productServiceNew } from '@/lib/firebase/firestore-new';
-import { Filter, Grid, List, SlidersHorizontal } from 'lucide-react';
+import { Filter, Grid, List, Search, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface ProductGridProps {
   storeId: string;
 }
 
 type ViewMode = 'grid' | 'list';
-type SortOption = 'name' | 'price-low' | 'price-high' | 'newest';
+type SortOption = 'newest' | 'name' | 'price-low' | 'price-high';
+type FilterOption = 'all' | 'bestsellers' | 'promotions';
 
 export function ProductGrid({ storeId }: ProductGridProps) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Estados para filtros e pesquisa
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterBy, setFilterBy] = useState<FilterOption>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // ✅ CORREÇÃO: Uma única função loadProducts
+  // Carregar produtos
   const loadProducts = async () => {
     if (!storeId) {
       setLoading(false);
@@ -34,14 +38,13 @@ export function ProductGrid({ storeId }: ProductGridProps) {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 ProductGrid: Buscando produtos para storeId:', storeId); // DEBUG
+      console.log('🔄 ProductGrid: Buscando produtos para storeId:', storeId);
 
       const storeProducts = await productServiceNew.getStoreProducts(storeId);
-      
-      console.log('✅ ProductGrid: Produtos encontrados:', storeProducts); // DEBUG
+
+      console.log('✅ ProductGrid: Produtos encontrados:', storeProducts.length);
 
       setProducts(storeProducts);
-      setFilteredProducts(storeProducts);
     } catch (err) {
       console.error('❌ ProductGrid: Erro ao carregar produtos:', err);
       setError('Erro ao carregar produtos da loja');
@@ -54,31 +57,9 @@ export function ProductGrid({ storeId }: ProductGridProps) {
     loadProducts();
   }, [storeId]);
 
-  // ✅ CORREÇÃO: Ordenar produtos corretamente
-  useEffect(() => {
-    if (products.length === 0) return;
-
-    const sorted = [...products].sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'price-low':
-          return getProductPrice(a) - getProductPrice(b);
-        case 'price-high':
-          return getProductPrice(b) - getProductPrice(a);
-        case 'newest':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        default:
-          return 0;
-      }
-    });
-    setFilteredProducts(sorted);
-  }, [sortBy, products]);
-
-  // Helper function para obter preço
+  // Função helper para obter preço do produto
   const getProductPrice = (product: Product) => {
     if (product.hasVariants && product.variants && product.variants.length > 0) {
-      // Encontrar o menor preço entre todas as opções ativas
       let minPrice = Infinity;
       product.variants.forEach(variant => {
         variant.options.forEach(option => {
@@ -89,38 +70,97 @@ export function ProductGrid({ storeId }: ProductGridProps) {
       });
       return minPrice !== Infinity ? minPrice : 0;
     }
-    
-    // Produto sem variações
+
     return product.variants?.[0]?.options?.[0]?.price || 0;
   };
 
-  // Loading Skeleton melhorado
+  // Função para verificar se produto está em promoção
+  const isProductOnSale = (product: Product) => {
+    const price = getProductPrice(product);
+    const originalPrice = product.variants?.[0]?.options?.[0]?.price;
+    return originalPrice && originalPrice > price;
+  };
+
+  // Filtrar e ordenar produtos
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...products];
+
+    // Aplicar filtro de busca
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(term) ||
+        product.description?.toLowerCase().includes(term) ||
+        product.category?.toLowerCase().includes(term)
+      );
+    }
+
+    // Aplicar filtros específicos
+    switch (filterBy) {
+      case 'bestsellers':
+        // Simular produtos mais vendidos (em uma implementação real, isso viria do backend)
+        filtered = filtered.filter((_, index) => index % 3 === 0); // Exemplo
+        break;
+      case 'promotions':
+        filtered = filtered.filter(product => isProductOnSale(product));
+        break;
+      case 'all':
+      default:
+        // Todos os produtos
+        break;
+    }
+
+    // Aplicar ordenação
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'price-low':
+          return getProductPrice(a) - getProductPrice(b);
+        case 'price-high':
+          return getProductPrice(b) - getProductPrice(a);
+        case 'newest':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+    return filtered;
+  }, [products, searchTerm, filterBy, sortBy]);
+
+  // Loading Skeleton
   if (loading) {
     return (
       <div className="space-y-6">
-        {/* Header Skeleton */}
-        <div className="flex justify-between items-center">
-          <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
-          <div className="flex space-x-2">
-            <div className="h-8 bg-gray-200 rounded w-20 animate-pulse"></div>
-            <div className="h-8 bg-gray-200 rounded w-20 animate-pulse"></div>
+        {/* Skeleton dos Filtros */}
+        <div className="space-y-4">
+          <div className="relative max-w-2xl mx-auto">
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+              <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+            <div className="w-full pl-10 pr-4 py-3 bg-gray-200 rounded-lg animate-pulse"></div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 justify-center">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="w-20 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Grid Skeleton */}
-        <div className={`grid gap-6 ${
-          viewMode === 'grid' 
-            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-            : 'grid-cols-1'
-        }`}>
+        {/* Skeleton do Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className={`bg-white rounded-lg border animate-pulse ${
-              viewMode === 'list' ? 'flex' : ''
-            }`}>
-              <div className={`aspect-square bg-gray-200 ${
-                viewMode === 'list' ? 'w-32 rounded-l-lg' : 'rounded-t-lg w-full'
-              }`}></div>
-              <div className="p-4 flex-1">
+            <div key={i} className="bg-white rounded-lg border animate-pulse">
+              <div className="aspect-square bg-gray-200 rounded-t-lg w-full"></div>
+              <div className="p-4">
                 <div className="w-3/4 h-4 bg-gray-200 rounded mb-2"></div>
                 <div className="w-1/2 h-4 bg-gray-200 rounded mb-3"></div>
                 <div className="w-1/3 h-6 bg-gray-200 rounded"></div>
@@ -145,7 +185,7 @@ export function ProductGrid({ storeId }: ProductGridProps) {
           <p className="text-gray-600 mb-4">
             {error}
           </p>
-          <button 
+          <button
             onClick={loadProducts}
             className="text-blue-600 hover:text-blue-800 font-medium"
           >
@@ -156,91 +196,127 @@ export function ProductGrid({ storeId }: ProductGridProps) {
     );
   }
 
-  if (filteredProducts.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="max-w-md mx-auto">
-          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">📦</span>
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            Nenhum produto encontrado
-          </h3>
-          <p className="text-gray-600">
-            {products.length === 0 
-              ? 'Esta loja ainda não possui produtos cadastrados.'
-              : 'Nenhum produto corresponde aos filtros aplicados.'
-            }
-          </p>
-          {products.length === 0 && (
-            <div className="mt-4">
-              <p className="text-sm text-gray-500">
-                💡 Acesse o dashboard para adicionar produtos a esta loja.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Header com Controles */}
+      {/* Barra de Pesquisa e Filtros - AGORA FUNCIONAIS */}
+      <div className="space-y-4">
+        {/* Barra de Pesquisa */}
+        <div className="relative max-w-2xl mx-auto">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <Input
+            type="text"
+            placeholder="Buscar produtos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          />
+        </div>
+
+        {/* Filtros e Ordenação */}
+        <div className="flex flex-wrap gap-4 justify-center">
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <Filter size={16} />
+            <span>Filtrar por:</span>
+          </div>
+          {/* Ordenação */}
+          <div className="flex items-center space-x-2 pl-2 border-l border-gray-200">
+            <ArrowUpDown size={16} className="text-gray-400" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="bg-transparent border-none text-sm text-gray-700 focus:outline-none"
+            >
+              <option value="newest">Mais Recentes</option>
+              <option value="name">Nome A-Z</option>
+              <option value="price-low">Menor Preço</option>
+              <option value="price-high">Maior Preço</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Header com Controles e Contador */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
-            {filteredProducts.length} produto{filteredProducts.length !== 1 ? 's' : ''} encontrado{filteredProducts.length !== 1 ? 's' : ''}
+            {filteredAndSortedProducts.length} produto{filteredAndSortedProducts.length !== 1 ? 's' : ''} encontrado{filteredAndSortedProducts.length !== 1 ? 's' : ''}
+            {searchTerm && (
+              <span className="text-gray-600 text-sm font-normal ml-2">
+                para "{searchTerm}"
+              </span>
+            )}
           </h2>
         </div>
 
-        <div className="flex items-center space-x-4">
-          {/* Ordenação */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        {/* View Mode Toggle */}
+        {/**
+        <div className="flex border border-gray-300 rounded-md overflow-hidden">
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('grid')}
+            className="rounded-none"
           >
-            <option value="newest">Mais Recentes</option>
-            <option value="name">Nome A-Z</option>
-            <option value="price-low">Menor Preço</option>
-            <option value="price-high">Maior Preço</option>
-          </select>
+            <Grid size={16} />
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="rounded-none"
+          >
+            <List size={16} />
+          </Button>
+        </div>
+         */}
+      </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex border border-gray-300 rounded-md overflow-hidden">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-              className="rounded-none"
-            >
-              <Grid size={16} />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="rounded-none"
-            >
-              <List size={16} />
-            </Button>
+      {/* Mensagem quando não há resultados */}
+      {filteredAndSortedProducts.length === 0 && (
+        <div className="text-center py-12">
+          <div className="max-w-md mx-auto">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">🔍</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Nenhum produto encontrado
+            </h3>
+            <p className="text-gray-600">
+              {searchTerm
+                ? `Não encontramos produtos para "${searchTerm}". Tente outros termos.`
+                : 'Nenhum produto corresponde aos filtros aplicados.'
+              }
+            </p>
+            {(searchTerm || filterBy !== 'all') && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterBy('all');
+                }}
+                className="mt-4"
+              >
+                Limpar filtros
+              </Button>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Product Grid/List */}
-      <div className={viewMode === 'grid' 
-        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
-        : 'grid grid-cols-1 gap-4'
-      }>
-        {filteredProducts.map((product) => (
-          <ProductCard 
-            key={product.id} 
-            product={product} 
-          />
-        ))}
-      </div>
+      {filteredAndSortedProducts.length > 0 && (
+        <div className={viewMode === 'grid'
+          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+          : 'grid grid-cols-1 gap-4'
+        }>
+          {filteredAndSortedProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

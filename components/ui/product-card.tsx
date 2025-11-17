@@ -1,7 +1,7 @@
-// components/ui/product-card.tsx - REDESIGN COMPLETO
+// components/ui/product-card.tsx - VERSÃO CORRIGIDA PARA PRODUTOS SEM VARIAÇÕES
 'use client';
 import { useState } from 'react';
-import { Product } from '@/types/products';
+import { Product, VariantOption } from '@/types/products';
 import { useStore } from '@/contexts/store-context';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { QuickViewModal } from '@/components/product/QuickViewModal';
@@ -13,9 +13,7 @@ import {
   getProductComparePrice,
   getProductTotalStock,
   getDiscountPercentage,
-  getPriceRange,
   getMainImage,
-  hasAnyPromotion,
   hasProductDiscount,
   getMaxDiscountPercentage
 } from '@/lib/utils/product-helpers';
@@ -30,28 +28,133 @@ export function ProductCard({ product }: ProductCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // ✅ Dados do produto
-  const productPrice = getProductPrice(product);
-  const productComparePrice = getProductComparePrice(product);
-  const totalStock = getProductTotalStock(product);
-  const hasDiscount = hasProductDiscount(product);
-  const discountPercentage = hasDiscount ? getDiscountPercentage(
-    productPrice,
-    productComparePrice || productPrice
-  ) : 0;
+  // ✅ CORREÇÃO: Lógica invertida - comparePrice é o preço PROMOCIONAL
   const hasVariants = product.hasVariants && product.variants && product.variants.length > 0;
-  const priceRange = hasVariants ? getPriceRange(product) : null;
+
+  let productPrice = 0;
+  let productComparePrice: number | undefined = undefined;
+  let hasDiscount = false;
+  let discountPercentage = 0;
+  let priceRange: { min: number; max: number } | null = null;
+
+  if (hasVariants && product.variants) {
+    // ✅ LÓGICA PARA PRODUTOS COM VARIAÇÕES (já corrigida)
+    let minPrice = Infinity;
+    let maxPrice = 0;
+    let minComparePrice: number | undefined = undefined;
+    let maxComparePrice: number | undefined = undefined;
+    let foundAnyDiscount = false;
+
+    product.variants.forEach(variant => {
+      if (variant.options) {
+        variant.options.forEach((option: VariantOption) => {
+          if (option.isActive && (option.stock || 0) > 0) {
+            // Preço normal (para cálculo de range)
+            if (option.price < minPrice) {
+              minPrice = option.price;
+            }
+            if (option.price > maxPrice) {
+              maxPrice = option.price;
+            }
+
+            // ✅ CORREÇÃO: ComparePrice válido (deve ser MENOR que o preço para ser considerado desconto)
+            if (option.comparePrice && option.comparePrice < option.price) {
+              foundAnyDiscount = true;
+
+              // Menor preço promocional
+              if (!minComparePrice || option.comparePrice < minComparePrice) {
+                minComparePrice = option.comparePrice;
+              }
+
+              // Maior preço promocional  
+              if (!maxComparePrice || option.comparePrice > maxComparePrice) {
+                maxComparePrice = option.comparePrice;
+              }
+            }
+          }
+        });
+      }
+    });
+
+    // ✅ DEFINIR OS PREÇOS CORRETOS PARA DISPLAY
+    if (foundAnyDiscount && minComparePrice && maxComparePrice) {
+      // Se há desconto, usar os preços promocionais
+      productPrice = minComparePrice; // Preço promocional mais baixo
+      productComparePrice = minPrice; // Preço normal mais baixo (para mostrar riscado)
+      priceRange = {
+        min: minComparePrice,
+        max: maxComparePrice
+      };
+    } else {
+      // Se não há desconto, usar preços normais
+      productPrice = minPrice !== Infinity ? minPrice : 0;
+      priceRange = {
+        min: minPrice !== Infinity ? minPrice : 0,
+        max: maxPrice
+      };
+    }
+
+    hasDiscount = foundAnyDiscount;
+
+    if (hasDiscount && productComparePrice) {
+      // ✅ CORREÇÃO: Calcula desconto baseado no preço normal vs promocional
+      discountPercentage = getDiscountPercentage(productPrice, productComparePrice);
+    }
+  } else {
+    // ✅ CORREÇÃO COMPLETA PARA PRODUTOS SEM VARIAÇÕES
+    const firstVariant = product.variants?.[0];
+    const firstOption = firstVariant?.options?.[0];
+
+    if (firstOption) {
+      // ✅ LÓGICA CORRIGIDA: comparePrice é o preço PROMOCIONAL
+      const normalPrice = firstOption.price; // Preço normal
+      const promoPrice = firstOption.comparePrice; // Preço promocional
+
+      // ✅ CORREÇÃO: Verificação segura de tipos
+      if (promoPrice && promoPrice < normalPrice) {
+        // COM DESCONTO
+        hasDiscount = true;
+        productPrice = promoPrice;
+        productComparePrice = normalPrice;
+        discountPercentage = getDiscountPercentage(promoPrice, normalPrice);
+      } else {
+        // SEM DESCONTO
+        hasDiscount = false;
+        productPrice = normalPrice;
+        productComparePrice = undefined;
+      }
+
+      priceRange = {
+        min: productPrice,
+        max: productPrice
+      };
+
+      console.log(`📱 PRODUTO SEM VARIAÇÕES ${product.name}:`, {
+        normalPrice,
+        promoPrice,
+        hasDiscount,
+        productPrice, // Preço a ser mostrado
+        productComparePrice // Preço a ser riscado
+      });
+    } else {
+      // Fallback caso não tenha opção
+      productPrice = 0;
+      productComparePrice = undefined;
+      priceRange = { min: 0, max: 0 };
+    }
+  }
+
+  const totalStock = getProductTotalStock(product);
   const mainImage = getMainImage(product);
   const maxDiscountPercentage = hasVariants ? getMaxDiscountPercentage(product) : discountPercentage;
 
   // ✅ Gatilhos mentais simulados
   const viewingCount = Math.floor(Math.random() * 8) + 3;
   const soldCount = Math.floor(Math.random() * 50) + 10;
-  const rating = (Math.random() * 1 + 4).toFixed(1); // 4.0 - 5.0
+  const rating = (Math.random() * 1 + 4).toFixed(1);
   const isHotItem = Math.random() > 0.7;
   const isNewProduct = Math.random() > 0.8;
 
-  // ✅ Status de estoque
   const getStockStatus = () => {
     if (totalStock === 0) return { type: 'out-of-stock', text: 'Esgotado', variant: 'destructive' as const };
     if (totalStock <= 3) return { type: 'low-stock', text: 'Últimas!', variant: 'destructive' as const };
@@ -80,13 +183,9 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <>
       <div className="group bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-2xl transition-all duration-300 overflow-hidden">
-        {/* Header com Badges Organizados */}
         <div className="relative">
-          {/* Imagem do Produto */}
           <Link href={`/${store?.slug}/products/${product.id}`} className="block">
-            <div className={`aspect-square relative overflow-hidden bg-gray-100 rounded-t-xl ${stockStatus?.type === 'out-of-stock' ? 'opacity-60 grayscale' : ''
-              }`}>
-              {/* Loading Skeleton */}
+            <div className={`aspect-square relative overflow-hidden bg-gray-100 rounded-t-xl ${stockStatus?.type === 'out-of-stock' ? 'opacity-60 grayscale' : ''}`}>
               {!imageLoaded && !imageError && (
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse" />
               )}
@@ -94,48 +193,34 @@ export function ProductCard({ product }: ProductCardProps) {
               <img
                 src={imageError ? '/images/placeholder-product.jpg' : mainImage}
                 alt={product.images?.[0]?.alt || product.name}
-                className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${imageLoaded ? 'opacity-100' : 'opacity-0'
-                  }`}
+                className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
                 onLoad={() => setImageLoaded(true)}
                 onError={handleImageError}
               />
 
-              {/* ✅ OVERLAY CORRIGIDO - apenas no hover e muito suave */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/3 transition-all duration-300" />
             </div>
           </Link>
 
-          {/* Badges Grid Organizado */}
           <div className="absolute top-3 left-3 flex flex-col gap-2 max-w-[70%]">
-            {/* Badge de Novo */}
             {isNewProduct && (
-              <Badge variant="success" className="shadow-lg">
-                🆕 Novo
-              </Badge>
+              <Badge variant="success" className="shadow-lg">🆕 Novo</Badge>
             )}
 
-            {/* Badge de Popular */}
             {isHotItem && (
-              <Badge variant="destructive" className="shadow-lg bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                🔥 Popular
-              </Badge>
+              <Badge variant="destructive" className="shadow-lg bg-gradient-to-r from-orange-500 to-red-500 text-white">🔥 Popular</Badge>
             )}
 
-            {/* Badge de Desconto - CORRIGIDO */}
             {hasDiscount && (
               <div
-                className="absolute top-3 right-3 z-10 px-2 py-1 text-xs font-bold text-white rounded shadow-lg"
+                className="px-2 py-1 text-xs font-bold text-white rounded shadow-lg"
                 style={{ backgroundColor: store?.theme.primaryColor }}
               >
-                {hasVariants && maxDiscountPercentage > discountPercentage
-                  ? `Até ${maxDiscountPercentage}% OFF`
-                  : `${discountPercentage}% OFF`
-                }
+                {`${discountPercentage}% OFF`}
               </div>
             )}
           </div>
 
-          {/* Badge de Estoque (lado direito para não sobrepor) */}
           {stockStatus && (
             <div className="absolute top-3 right-3">
               <Badge variant={stockStatus.variant} className="shadow-lg">
@@ -144,7 +229,6 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
 
-          {/* Rating (canto inferior) */}
           <div className="absolute bottom-3 left-3">
             <Badge variant="secondary" className="shadow-lg backdrop-blur-sm bg-white/90">
               <Star size={12} className="fill-yellow-400 text-yellow-400 mr-1" />
@@ -153,26 +237,21 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         </div>
 
-        {/* Conteúdo do Card */}
         <div className="p-4 space-y-3">
-          {/* Categoria */}
           <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">
             {product.category}
           </div>
 
-          {/* Nome do Produto */}
           <Link href={`/${store?.slug}/products/${product.id}`}>
             <h3 className="font-semibold text-gray-900 line-clamp-2 hover:text-blue-600 cursor-pointer transition-colors leading-tight min-h-[2.5rem]">
               {product.name}
             </h3>
           </Link>
 
-          {/* Descrição */}
           <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
             {product.description}
           </p>
 
-          {/* Gatilhos Sociais */}
           <div className="flex items-center justify-between text-xs text-gray-500">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-1">
@@ -191,40 +270,78 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
 
-          {/* Price - Display Inteligente CORRIGIDO */}
+          {/* ✅ DISPLAY CORRIGIDO PARA TODOS OS CASOS */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
               {hasVariants && priceRange ? (
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-600">A partir de</span>
-                  <span className="text-lg font-bold text-gray-900">
-                    {formatPrice(priceRange.min)}
-                  </span>
-                  {priceRange.min !== priceRange.max && (
-                    <span className="text-xs text-gray-500">
-                      Até {formatPrice(priceRange.max)}
-                    </span>
+                  {hasDiscount ? (
+                    // ✅ COM DESCONTO: Mostrar preços promocionais
+                    <>
+                      <span className="text-xs text-gray-600">A partir de</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg font-bold text-gray-900">
+                          {formatPrice(priceRange.min)}
+                        </span>
+                        {productComparePrice && (
+                          <span className="text-sm text-gray-500 line-through">
+                            {formatPrice(productComparePrice)}
+                          </span>
+                        )}
+                      </div>
+                      {priceRange.min !== priceRange.max && (
+                        <span className="text-xs text-gray-500">
+                          Até {formatPrice(priceRange.max)}
+                        </span>
+                      )}
+                      {hasDiscount && productComparePrice && (
+                        <span className="text-xs text-green-600 font-medium">
+                          Economize {formatPrice(productComparePrice - priceRange.min)}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    // ✅ SEM DESCONTO: Mostrar preços normais
+                    <>
+                      <span className="text-xs text-gray-600">A partir de</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {formatPrice(priceRange.min)}
+                      </span>
+                      {priceRange.min !== priceRange.max && (
+                        <span className="text-xs text-gray-500">
+                          Até {formatPrice(priceRange.max)}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
-                <>
-                  <span className="text-lg font-bold text-gray-900">
-                    {formatPrice(productPrice)}
-                  </span>
-
+                // ✅ PRODUTOS SEM VARIAÇÕES - CORRIGIDO
+                <div className="flex flex-col space-y-1">
+                  <div className="flex items-center space-x-2">
+                    {/* ✅ PREÇO ATUAL (promocional se houver desconto) */}
+                    <span className="text-lg font-bold text-gray-900">
+                      {formatPrice(productPrice)}
+                    </span>
+                    {/* ✅ PREÇO ORIGINAL (riscado se houver desconto) */}
+                    {hasDiscount && productComparePrice && (
+                      <span className="text-sm text-gray-500 line-through">
+                        {formatPrice(productComparePrice)}
+                      </span>
+                    )}
+                  </div>
+                  {/* ✅ ECONOMIA (se houver desconto) */}
                   {hasDiscount && productComparePrice && (
-                    <span className="text-sm text-gray-500 line-through">
-                      {formatPrice(productComparePrice)}
+                    <span className="text-xs text-green-600 font-medium">
+                      Economize {formatPrice(productComparePrice - productPrice)}
                     </span>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Ações Duplas */}
           <div className="flex space-x-2 pt-2">
-            {/* Botão Principal - Comprar/Ver Opções */}
             <div className="flex-1">
               <AddToCartButton
                 product={product}
@@ -239,7 +356,6 @@ export function ProductCard({ product }: ProductCardProps) {
               />
             </div>
 
-            {/* Botão Secundário - Ver Detalhes */}
             <Link
               href={`/${store?.slug}/products/${product.id}`}
               className="flex-shrink-0"
@@ -250,7 +366,6 @@ export function ProductCard({ product }: ProductCardProps) {
             </Link>
           </div>
 
-          {/* Link de Detalhes Textual */}
           <Link
             href={`/${store?.slug}/products/${product.id}`}
             className="flex items-center justify-center text-sm text-gray-500 hover:text-gray-700 transition-colors pt-1"
@@ -261,7 +376,6 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Quick View Modal */}
       <QuickViewModal
         product={product}
         isOpen={isQuickViewOpen}

@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 export interface Store {
   id: string;
   ownerId: string;
@@ -36,7 +38,7 @@ export interface PixKey {
   type: 'email' | 'phone' | 'cpf' | 'cnpj' | 'random';
   isActive: boolean;
   description?: string;
-  createdAt: Date;
+  createdAt: Timestamp | Date;
 }
 
 export interface StoreSettings {

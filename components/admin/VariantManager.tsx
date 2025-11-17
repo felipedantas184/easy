@@ -51,14 +51,14 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
   // Validar SKU único
   const validateUniqueSKU = useCallback((sku: string, currentVariantId: string, currentOptionId: string): string => {
     if (!sku.trim()) return '';
-    
-    const duplicate = variants.some(variant => 
-      variant.options.some(option => 
-        option.sku === sku && 
+
+    const duplicate = variants.some(variant =>
+      variant.options.some(option =>
+        option.sku === sku &&
         option.id !== currentOptionId
       )
     );
-    
+
     return duplicate ? 'SKU já existe em outra opção' : '';
   }, [variants]);
 
@@ -123,7 +123,7 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
       }
       return variant;
     });
-    
+
     onChange(updatedVariants);
 
     // Limpar erro de validação quando o campo é corrigido
@@ -166,12 +166,12 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
 
     if (field === 'price') {
       updateOption(variantId, optionId, 'price', priceInReais);
-      
+
       // Validar preço promocional em relação ao novo preço normal
       const option = variants
         .find(v => v.id === variantId)
         ?.options.find(o => o.id === optionId);
-      
+
       if (option?.comparePrice) {
         const error = validatePromotionalPrice(priceInReais, option.comparePrice);
         setValidationErrors(prev => ({
@@ -183,9 +183,9 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
       const option = variants
         .find(v => v.id === variantId)
         ?.options.find(o => o.id === optionId);
-      
+
       const error = validatePromotionalPrice(option?.price || 0, priceInReais);
-      
+
       if (error) {
         setValidationErrors(prev => ({ ...prev, [errorKey]: error }));
       } else {
@@ -202,9 +202,9 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
   // Componente de Badge de Desconto Unificado
   const DiscountBadge = useCallback(({ price, comparePrice }: { price: number; comparePrice?: number }) => {
     if (!comparePrice || comparePrice >= price) return null;
-    
+
     const discountPercent = calculateDiscountPercentage(price, comparePrice);
-    
+
     return (
       <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
         <CheckCircle size={12} />
@@ -216,7 +216,7 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
   // Componente de Status de Estoque Unificado
   const StockStatus = useCallback(({ stock }: { stock: number }) => {
     const status = getStockStatus(stock);
-    
+
     return (
       <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${status.bg} ${status.color}`}>
         <span>{status.icon}</span>
@@ -310,9 +310,9 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
                   <AlertTriangle size={12} />
                   <span>{comparePriceError}</span>
                 </p>
-              ) : defaultOption.comparePrice && defaultOption.comparePrice < defaultOption.price && (
-                <DiscountBadge price={defaultOption.price} comparePrice={defaultOption.comparePrice} />
-              )}
+              ) :
+                (<></>
+                )}
             </div>
 
             {/* Estoque */}
@@ -342,14 +342,14 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
               <strong>Estoque atual:</strong> {defaultOption.stock} unidades
             </span>
           </div>
-          
+
           {defaultOption.comparePrice && defaultOption.comparePrice < defaultOption.price && (
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500 line-through">
-                {formatPrice(defaultOption.comparePrice)}
+                {formatPrice(defaultOption.price)}
               </span>
               <span className="text-lg font-bold text-green-600">
-                {formatPrice(defaultOption.price)}
+                {formatPrice(defaultOption.comparePrice)}
               </span>
               <DiscountBadge price={defaultOption.comparePrice} comparePrice={defaultOption.price} />
             </div>
@@ -423,7 +423,8 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
                 <div className="md:col-span-2">Preço *</div>
                 <div className="md:col-span-2">Preço Promocional</div>
                 <div className="md:col-span-1">Estoque *</div>
-                <div className="md:col-span-3">Status</div>
+                <div className="md:col-span-2">Status</div>
+                <div className="md:col-span-1">Ação</div>
               </div>
 
               {/* Linhas de opções */}
@@ -516,20 +517,20 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
                     </div>
 
                     {/* Status */}
-                    <div className="md:col-span-3 space-y-2">
+                    <div className="md:col-span-2 space-y-2">
                       <label className="md:hidden text-xs font-medium text-gray-500">Status</label>
                       <StockStatus stock={option.stock} />
                       {option.comparePrice && option.comparePrice < option.price && (
                         <div className="flex items-center space-x-2 text-sm text-green-600">
-                          <span className="line-through">{formatPrice(option.comparePrice)}</span>
+                          <span className="line-through">{formatPrice(option.price)}</span>
                           <span>→</span>
-                          <span className="font-bold">{formatPrice(option.price)}</span>
+                          <span className="font-bold">{formatPrice(option.comparePrice)}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Botão Remover */}
-                    <div className="md:col-span-12 flex justify-end md:absolute md:relative md:col-span-1">
+                    <div className="md:col-span-1 flex md:absolute md:relative md:col-span-1">
                       <Button
                         variant="outline"
                         size="sm"

@@ -136,7 +136,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
     }
 
     // ✅ VALIDAÇÃO COMPLETA
-    const validation = validateOrderData(customerInfo, store); // ✅ Adicionar store como segundo parâmetro
+    const validation = validateOrderData(customerInfo, store);
     if (!validation.isValid) {
       alert(validation.errors.join('\n'));
       return;
@@ -149,7 +149,7 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
       const breakdown = getCartBreakdown();
       const selectedShipping = getSelectedShipping();
 
-      // ✅ CORREÇÃO: Usar a interface CreateOrderData correta
+      // ✅ CORREÇÃO: Sempre incluir variant, mesmo quando selectedVariant é undefined
       const orderData = {
         storeId: store.id,
         customerInfo: {
@@ -162,16 +162,42 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
           zipCode: customerInfo.zipCode?.trim() || '',
         },
         items: state.items.map(item => {
-          const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
-          return {
-            productId: item.product.id,
-            productName: item.product.name,
-            variant: item.selectedVariant ? {
+          // ✅ SEMPRE determinar qual variant/option está sendo usada
+          let variantInfo = null;
+          let itemPrice = 0;
+
+          if (item.selectedVariant) {
+            // Caso 1: Tem selectedVariant explícito
+            variantInfo = {
               variantId: item.selectedVariant.variantId,
               optionId: item.selectedVariant.optionId,
               optionName: item.selectedVariant.optionName,
               price: item.selectedVariant.price,
-            } : undefined,
+            };
+            itemPrice = item.selectedVariant.price;
+          } else {
+            // Caso 2: Não tem selectedVariant, usar primeira opção
+            const firstVariant = item.product.variants?.[0];
+            const firstOption = firstVariant?.options?.[0];
+
+            if (firstVariant && firstOption) {
+              variantInfo = {
+                variantId: firstVariant.id,
+                optionId: firstOption.id,
+                optionName: firstOption.name,
+                price: firstOption.price,
+              };
+              itemPrice = firstOption.price;
+            } else {
+              // Fallback: usar preço do produto
+              itemPrice = getProductPrice(item.product);
+            }
+          }
+
+          return {
+            productId: item.product.id,
+            productName: item.product.name,
+            variant: variantInfo, // ✅ SEMPRE definido
             quantity: item.quantity,
             price: itemPrice,
             total: itemPrice * item.quantity,
@@ -204,9 +230,8 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
         }
       };
 
-      console.log('📦 Criando pedido com dados:', orderData);
+      console.log('📦 Dados do pedido (com variant sempre definido):', orderData);
 
-      // ✅ CORREÇÃO: Chamar createOrder com dados compatíveis
       const result = await createOrder(orderData);
 
       if (result.success && result.orderId) {
@@ -217,7 +242,13 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
       }
 
     } catch (error) {
-      console.error('Erro ao processar pedido:', error);
+      console.error('❌ Erro ao processar pedido:', error);
+
+      if (error instanceof Error) {
+        console.error('Mensagem de erro:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
+
       alert('Erro ao processar pedido. Tente novamente.');
     } finally {
       setLoading(false);

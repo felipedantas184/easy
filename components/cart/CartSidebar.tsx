@@ -1,7 +1,8 @@
+// components/cart/CartSidebar.tsx - VERSÃO COM PREÇOS PROMOCIONAIS
 'use client';
 import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
-import { X, Plus, Minus, ShoppingCart, Loader2 } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, Loader2, Tag } from 'lucide-react';
 import { useStore } from '@/contexts/store-context';
 import Link from 'next/link';
 import { getProductPrice } from '@/lib/utils/product-helpers';
@@ -24,18 +25,72 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
     }).format(price);
   };
 
+  // ✅ NOVA FUNÇÃO: Obter preço atual considerando promoção
+  const getCurrentPrice = (item: any) => {
+    if (item.selectedVariant) {
+      // ✅ CORREÇÃO: Se tem variante selecionada, verificar se há comparePrice (promocional)
+      const variantOption = findVariantOption(item.product, item.selectedVariant.variantId, item.selectedVariant.optionId);
+      
+      if (variantOption?.comparePrice && variantOption.comparePrice < variantOption.price) {
+        // ✅ COM DESCONTO: comparePrice é o preço promocional
+        return {
+          currentPrice: variantOption.comparePrice,
+          originalPrice: variantOption.price,
+          hasDiscount: true,
+          discountPercentage: Math.round(((variantOption.price - variantOption.comparePrice) / variantOption.price) * 100)
+        };
+      } else {
+        // ✅ SEM DESCONTO: usar preço normal
+        return {
+          currentPrice: variantOption?.price || 0,
+          originalPrice: undefined,
+          hasDiscount: false,
+          discountPercentage: 0
+        };
+      }
+    } else {
+      // ✅ PRODUTO SEM VARIAÇÕES
+      const firstVariant = item.product.variants?.[0];
+      const firstOption = firstVariant?.options?.[0];
+      
+      if (firstOption?.comparePrice && firstOption.comparePrice < firstOption.price) {
+        // ✅ COM DESCONTO
+        return {
+          currentPrice: firstOption.comparePrice,
+          originalPrice: firstOption.price,
+          hasDiscount: true,
+          discountPercentage: Math.round(((firstOption.price - firstOption.comparePrice) / firstOption.price) * 100)
+        };
+      } else {
+        // ✅ SEM DESCONTO
+        return {
+          currentPrice: firstOption?.price || 0,
+          originalPrice: undefined,
+          hasDiscount: false,
+          discountPercentage: 0
+        };
+      }
+    }
+  };
+
+  // ✅ FUNÇÃO AUXILIAR: Encontrar opção da variante
+  const findVariantOption = (product: any, variantId: string, optionId: string) => {
+    const variant = product.variants?.find((v: any) => v.id === variantId);
+    return variant?.options?.find((opt: any) => opt.id === optionId);
+  };
+
   // ✅ CORREÇÃO: Função para atualizar quantidade com tratamento de loading
   const handleUpdateQuantity = async (
     productId: string,
     newQuantity: number,
-    optionId?: string // ✅ MUDAR PARA optionId
+    optionId?: string
   ) => {
     const itemKey = `${productId}-${optionId || 'no-variant'}`;
 
     try {
       setLoadingItems(prev => new Set(prev).add(itemKey));
 
-      const result = await updateQuantity(productId, newQuantity, optionId); // ✅ MUDAR PARA optionId
+      const result = await updateQuantity(productId, newQuantity, optionId);
 
       if (!result.success) {
         alert(result.message);
@@ -51,7 +106,6 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
       });
     }
   };
-
 
   // ✅ CORREÇÃO: Função para remover item
   const handleRemoveItem = async (productId: string, variantId?: string) => {
@@ -124,9 +178,10 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
             ) : (
               <div className="space-y-4">
                 {state.items.map((item, index) => {
-                  const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
-                  const itemTotal = itemPrice * item.quantity;
-                  const itemKey = `${item.product.id}-${item.selectedVariant?.variantId || 'no-variant'}`;
+                  // ✅ CORREÇÃO: Usar a nova função para obter preços
+                  const priceInfo = getCurrentPrice(item);
+                  const itemTotal = priceInfo.currentPrice * item.quantity;
+                  const itemKey = `${item.product.id}-${item.selectedVariant?.optionId || 'no-variant'}`;
                   const isLoading = loadingItems.has(itemKey);
 
                   return (
@@ -151,19 +206,53 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
 
                       {/* Product Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm text-gray-900 truncate">
-                          {item.product.name}
-                        </h4>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm text-gray-900 truncate">
+                              {item.product.name}
+                            </h4>
 
-                        {item.selectedVariant && (
-                          <p className="text-xs text-gray-600">
-                            {item.selectedVariant.optionName}
-                          </p>
-                        )}
+                            {item.selectedVariant && (
+                              <p className="text-xs text-gray-600">
+                                {item.selectedVariant.optionName}
+                              </p>
+                            )}
+                          </div>
 
-                        <p className="text-sm font-semibold text-gray-900">
-                          {formatPrice(itemPrice)}
-                        </p>
+                          {/* ✅ BADGE DE DESCONTO */}
+                          {priceInfo.hasDiscount && (
+                            <div
+                              className="ml-2 px-2 py-1 text-xs font-bold text-white rounded flex items-center"
+                              style={{ backgroundColor: store?.theme.primaryColor }}
+                            >
+                              <Tag size={10} className="mr-1" />
+                              {priceInfo.discountPercentage}%
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ✅ PREÇOS CORRETOS */}
+                        <div className="mt-1">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {formatPrice(priceInfo.currentPrice)}
+                            </p>
+                            
+                            {/* ✅ PREÇO ORIGINAL RISCADO */}
+                            {priceInfo.hasDiscount && priceInfo.originalPrice && (
+                              <p className="text-sm text-gray-500 line-through">
+                                {formatPrice(priceInfo.originalPrice)}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* ✅ ECONOMIA */}
+                          {priceInfo.hasDiscount && priceInfo.originalPrice && (
+                            <p className="text-xs text-green-600 font-medium">
+                              Economize {formatPrice(priceInfo.originalPrice - priceInfo.currentPrice)}
+                            </p>
+                          )}
+                        </div>
 
                         {/* Quantity Controls */}
                         <div className="flex items-center space-x-2 mt-2">
@@ -173,7 +262,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                             onClick={() => handleUpdateQuantity(
                               item.product.id,
                               item.quantity - 1,
-                              item.selectedVariant?.optionId // ✅ MUDAR PARA optionId
+                              item.selectedVariant?.optionId
                             )}
                             disabled={item.quantity <= 1 || isLoading}
                             className="w-8 h-8 p-0"
@@ -191,7 +280,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                             onClick={() => handleUpdateQuantity(
                               item.product.id,
                               item.quantity + 1,
-                              item.selectedVariant?.optionId // ✅ MUDAR PARA optionId
+                              item.selectedVariant?.optionId
                             )}
                             disabled={isLoading}
                             className="w-8 h-8 p-0"
@@ -204,7 +293,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                             size="sm"
                             onClick={() => handleRemoveItem(
                               item.product.id,
-                              item.selectedVariant?.optionId // ✅ MUDAR PARA optionId
+                              item.selectedVariant?.optionId
                             )}
                             disabled={isLoading}
                             className="ml-auto text-red-600 hover:text-red-700 w-8 h-8 p-0"
@@ -218,6 +307,11 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           <p className="text-sm font-semibold text-gray-900">
                             Total: {formatPrice(itemTotal)}
                           </p>
+                          {priceInfo.hasDiscount && priceInfo.originalPrice && (
+                            <p className="text-xs text-gray-500 line-through">
+                              Total original: {formatPrice(priceInfo.originalPrice * item.quantity)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

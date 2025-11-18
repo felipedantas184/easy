@@ -13,6 +13,29 @@ import {
 } from '@/lib/utils/cart-helpers';
 import { shippingService } from '@/lib/firebase/shipping-service';
 
+const getCurrentPriceForItem = (item: CartItem): number => {
+  if (item.selectedVariant) {
+    const variant = item.product.variants?.find(v => v.id === item.selectedVariant?.variantId);
+    const option = variant?.options.find(opt => opt.id === item.selectedVariant?.optionId);
+
+    // ✅ CORREÇÃO: Priorizar comparePrice se disponível e menor
+    if (option?.comparePrice && option.comparePrice < option.price) {
+      return option.comparePrice;
+    }
+    return option?.price || 0;
+  } else {
+    // Produto sem variações
+    const firstVariant = item.product.variants?.[0];
+    const firstOption = firstVariant?.options?.[0];
+
+    if (firstOption?.comparePrice && firstOption.comparePrice < firstOption.price) {
+      return firstOption.comparePrice;
+    }
+    return firstOption?.price || 0;
+  }
+};
+
+
 export interface CartItem {
   product: Product;
   quantity: number;
@@ -220,7 +243,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 
 function calculateTotals(state: CartState): CartState {
   const total = state.items.reduce((sum, item) => {
-    const price = item.selectedVariant?.price || getProductPrice(item.product);
+    const price = getCurrentPriceForItem(item); // ✅ USA PREÇO PROMOCIONAL
     return sum + (price * item.quantity);
   }, 0);
 
@@ -590,7 +613,7 @@ export function CartProvider({ children, storeId }: CartProviderProps) {
 
   const getCartBreakdown = () => {
     const subtotal = state.items.reduce((sum, item) => {
-      const itemPrice = item.selectedVariant?.price || getProductPrice(item.product);
+      const itemPrice = getCurrentPriceForItem(item); // ✅ USA PREÇO PROMOCIONAL
       return sum + (itemPrice * item.quantity);
     }, 0);
 

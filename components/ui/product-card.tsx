@@ -243,11 +243,12 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           <Link href={`/${store?.slug}/products/${product.id}`}>
-            <h3 className="font-semibold text-gray-900 line-clamp-2 hover:text-blue-600 cursor-pointer transition-colors leading-tight min-h-[2.5rem]">
+            <h3 className="font-semibold text-gray-900 line-clamp-2 hover:text-blue-600 cursor-pointer transition-colors leading-tight min-h-[1.8rem]">
               {product.name}
             </h3>
           </Link>
 
+          {/**
           <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
             {product.description}
           </p>
@@ -269,6 +270,7 @@ export function ProductCard({ product }: ProductCardProps) {
               </span>
             )}
           </div>
+           */}
 
           {/* ✅ DISPLAY CORRIGIDO PARA TODOS OS CASOS */}
           <div className="flex items-center justify-between mb-3">
@@ -360,12 +362,13 @@ export function ProductCard({ product }: ProductCardProps) {
               href={`/${store?.slug}/products/${product.id}`}
               className="flex-shrink-0"
             >
-              <button className="h-11 px-4 border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center">
+              <button className="h-11 px-4 border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center cursor-pointer">
                 <Eye size={18} />
               </button>
             </Link>
           </div>
 
+          {/**
           <Link
             href={`/${store?.slug}/products/${product.id}`}
             className="flex items-center justify-center text-sm text-gray-500 hover:text-gray-700 transition-colors pt-1"
@@ -373,6 +376,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <span>Ver detalhes completos</span>
             <ArrowRight size={14} className="ml-1" />
           </Link>
+           */}
         </div>
       </div>
 

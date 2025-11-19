@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tag, X, Check, AlertCircle } from 'lucide-react';
+import { Tag, X, Check, AlertCircle, CheckCircle } from 'lucide-react';
+import { formatPrice } from '@/lib/utils/helpers';
 
 interface DiscountCouponProps {
   storeId: string;
@@ -55,74 +56,73 @@ export function DiscountCoupon({ storeId }: DiscountCouponProps) {
   };
 
   return (
-    <div className="space-y-3">
-      {/* Cupom Aplicado */}
-      {state.discount?.applied ? (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Check className="text-green-600" size={20} />
-              <div>
-                <p className="font-medium text-green-900">
-                  Cupom aplicado: {state.discount.couponCode}
-                </p>
-                <p className="text-sm text-green-700">
-                  Desconto de R$ {state.discount.discountAmount.toFixed(2)}
-                </p>
-              </div>
+  <div className="space-y-3">
+    {state.discount?.applied ? (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Check className="text-green-600" size={20} />
+            <div>
+              <p className="font-semibold text-green-900">
+                Cupom aplicado!
+              </p>
+              <p className="text-green-700 text-sm">
+                {state.discount.couponCode} - {formatPrice(state.discount.discountAmount)} de desconto
+              </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRemoveCoupon}
-              className="text-green-700 hover:text-green-800"
-            >
-              <X size={16} />
-            </Button>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRemoveCoupon}
+            className="text-green-700 hover:text-green-800"
+          >
+            <X size={16} />
+          </Button>
         </div>
-      ) : (
-        /* Input de Cupom */
-        <div className="space-y-2">
-          <label htmlFor="coupon-code" className="text-sm font-medium text-gray-700">
-            Cupom de desconto
-          </label>
-          
-          <div className="flex space-x-2">
-            <Input
-              id="coupon-code"
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Digite o código do cupom"
-              disabled={loading}
-              className="flex-1"
-            />
-            <Button
-              onClick={handleApplyCoupon}
-              disabled={loading || !couponCode.trim()}
-              variant="outline"
-            >
-              <Tag size={16} className="mr-2" />
-              {loading ? 'Aplicando...' : 'Aplicar'}
-            </Button>
-          </div>
+      </div>
+    ) : (
+      <div className="space-y-2">
+        <div className="flex space-x-2">
+          <Input
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+            onKeyPress={handleKeyPress}
+            placeholder="Cupom de desconto"
+            disabled={loading}
+            className="flex-1 h-12"
+          />
+          <Button
+            onClick={handleApplyCoupon}
+            disabled={loading || !couponCode.trim()}
+            className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              'Aplicar'
+            )}
+          </Button>
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Mensagem de Feedback */}
-      {message && (
-        <div className={`p-3 rounded-lg text-sm ${
-          message.type === 'success' 
-            ? 'bg-green-50 text-green-700 border border-green-200' 
-            : 'bg-red-50 text-red-700 border border-red-200'
-        }`}>
-          <div className="flex items-center space-x-2">
-            {message.type === 'error' && <AlertCircle size={16} />}
-            <span>{message.text}</span>
-          </div>
+    {message && (
+      <div className={`p-3 rounded-lg text-sm ${
+        message.type === 'success' 
+          ? 'bg-green-50 text-green-800 border border-green-200' 
+          : 'bg-red-50 text-red-800 border border-red-200'
+      }`}>
+        <div className="flex items-center space-x-2">
+          {message.type === 'success' ? (
+            <CheckCircle size={16} />
+          ) : (
+            <AlertCircle size={16} />
+          )}
+          <span>{message.text}</span>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 }

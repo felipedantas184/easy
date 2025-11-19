@@ -3,7 +3,8 @@
 import { useCart } from '@/contexts/cart-context';
 import { DiscountCoupon } from '@/components/cart/DiscountCoupon';
 import { ShippingOption } from '@/types/store';
-import { Tag } from 'lucide-react';
+import { Package, Tag } from 'lucide-react';
+import { Button } from '../ui';
 
 interface OrderSummaryProps {
   storeId: string;
@@ -110,123 +111,67 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
   };
 
   return (
-    <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
-      <h3 className="text-lg font-semibold mb-4">Resumo do Pedido</h3>
+  <div className="bg-white">
+    {/* ✅ HEADER FIXO VISÍVEL */}
+    <div className="border-b border-gray-200 p-4 bg-white">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Seu Pedido</h3>
+        <div className="flex items-center space-x-1 text-gray-500">
+          <Package size={16} />
+          <span className="text-sm">{state.items.length} itens</span>
+        </div>
+      </div>
+    </div>
 
-      {/* Cupom de Desconto */}
-      <div className="mb-4">
+    <div className="p-4 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+      {/* ✅ CUPOM DE DESCONTO */}
+      <div>
         <DiscountCoupon storeId={storeId} />
       </div>
 
-      {/* Opções de Frete */}
-      {shippingOptions.length > 0 && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Método de Entrega
-          </label>
-          <div className="space-y-2">
-            {shippingOptions.map((option) => (
-              <div
-                key={option.id}
-                className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${
-                  selectedShipping?.id === option.id
-                    ? 'border-blue-500 bg-blue-50 shadow-sm'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-                onClick={() => handleShippingChange(option)}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">{option.name}</span>
-                    <span className="font-semibold">
-                      {option.price === 0 ? 'Grátis' : formatPrice(option.price)}
-                    </span>
-                  </div>
-                  {option.description && (
-                    <p className="text-xs text-gray-600 mt-1">{option.description}</p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    📅 {option.deliveryDays}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ✅ ITENS DO CARRINHO - PREÇOS CORRETOS */}
-      <div className="space-y-3 mb-4">
+      {/* ✅ ITENS DO PEDIDO */}
+      <div className="space-y-3">
         {state.items.map((item, index) => {
           const priceInfo = getPriceInfo(item);
           const itemTotal = priceInfo.currentPrice * item.quantity;
-          const itemSavings = priceInfo.hasDiscount && priceInfo.originalPrice 
-            ? (priceInfo.originalPrice - priceInfo.currentPrice) * item.quantity
-            : 0;
 
           return (
-            <div key={index} className="flex justify-between items-start">
+            <div key={index} className="flex items-start space-x-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {item.product.name}
-                    </p>
-                    {item.selectedVariant && (
-                      <p className="text-xs text-gray-600">
-                        {item.selectedVariant.optionName}
-                      </p>
-                    )}
-                  </div>
-                  
-                  {/* ✅ BADGE DE DESCONTO */}
-                  {priceInfo.hasDiscount && priceInfo.discountPercentage > 0 && (
-                    <div className="ml-2 px-2 py-1 text-xs font-bold text-white rounded flex items-center bg-green-500">
-                      <Tag size={10} className="mr-1" />
-                      {priceInfo.discountPercentage}%
-                    </div>
-                  )}
-                </div>
-
-                {/* ✅ PREÇOS CORRETOS: */}
-                {/* Preço atual (promocional) SEM riscar */}
-                {/* Preço original (cheio) COM riscado */}
-                <div className="flex items-center space-x-2 mt-1">
-                  <p className="text-xs text-gray-500">
-                    {formatPrice(priceInfo.currentPrice)} × {item.quantity}
-                  </p>
-                  
-                  {priceInfo.hasDiscount && priceInfo.originalPrice && (
-                    <p className="text-xs text-gray-400 line-through">
-                      {formatPrice(priceInfo.originalPrice)} × {item.quantity}
-                    </p>
-                  )}
-                </div>
-                
-                {/* ✅ ECONOMIA POR ITEM */}
-                {priceInfo.hasDiscount && priceInfo.originalPrice && itemSavings > 0 && (
-                  <p className="text-xs text-green-600 font-medium mt-1">
-                    Economizou {formatPrice(itemSavings)}
+                <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                  {item.product.name}
+                </p>
+                {item.selectedVariant && (
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    {item.selectedVariant.optionName}
                   </p>
                 )}
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatPrice(priceInfo.currentPrice)}
+                    </span>
+                    {priceInfo.hasDiscount && priceInfo.originalPrice && (
+                      <span className="text-xs text-gray-400 line-through">
+                        {formatPrice(priceInfo.originalPrice)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm text-gray-500">Qtd: {item.quantity}</span>
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-900 ml-2">
-                {formatPrice(itemTotal)}
-              </p>
             </div>
           );
         })}
       </div>
 
-      {/* ✅ TOTAIS - EXATAMENTE COMO NO CÓDIGO ANTIGO */}
-      <div className="border-t pt-4 space-y-2">
-        {/* Subtotal COM PREÇOS ORIGINAIS */}
+      {/* ✅ TOTAIS CLAROS */}
+      <div className="border-t border-gray-200 pt-4 space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Subtotal</span>
           <span className="text-gray-900">{formatPrice(originalSubtotal)}</span>
         </div>
 
-        {/* ECONOMIA NOS PRODUTOS */}
         {itemSavings > 0 && (
           <div className="flex justify-between text-sm text-green-600">
             <span>Economia nos produtos</span>
@@ -234,60 +179,52 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
           </div>
         )}
 
-        {/* Desconto do Cupom */}
         {breakdown.discountAmount > 0 && (
           <div className="flex justify-between text-sm text-green-600">
-            <span>Desconto ({state.discount?.couponCode})</span>
+            <span>Desconto</span>
             <span>- {formatPrice(breakdown.discountAmount)}</span>
           </div>
         )}
 
-        {/* Frete */}
         {selectedShipping && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Frete ({selectedShipping.name})</span>
-            <span className="text-gray-900">
+            <span>Frete</span>
+            <span className={selectedShipping.price === 0 ? 'text-green-600 font-semibold' : ''}>
               {selectedShipping.price === 0 ? 'Grátis' : formatPrice(selectedShipping.price)}
             </span>
           </div>
         )}
 
-        {/* LINHA DIVISÓRIA E TOTAL */}
-        <div className="border-t pt-2"></div>
-        <div className="flex justify-between text-lg font-semibold">
-          <span>Total</span>
-          <span>{formatPrice(breakdown.total)}</span>
-        </div>
-
-        {/* RESUMO DE ECONOMIA DETALHADO */}
-        {(itemSavings > 0 || breakdown.discountAmount > 0) && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-800">
-                  🎉 Você economizou {formatPrice(itemSavings + breakdown.discountAmount)}
-                </p>
-                <div className="text-xs text-green-600 mt-1 space-y-1">
-                  {itemSavings > 0 && (
-                    <p>• {formatPrice(itemSavings)} em descontos nos produtos</p>
-                  )}
-                  {breakdown.discountAmount > 0 && (
-                    <p>• {formatPrice(breakdown.discountAmount)} com cupom {state.discount?.couponCode}</p>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-green-600 line-through">
+        <div className="border-t border-gray-300 pt-3">
+          <div className="flex justify-between items-center">
+            <span className="font-semibold text-gray-900">Total</span>
+            <div className="text-right">
+              {(itemSavings > 0 || breakdown.discountAmount > 0) && (
+                <p className="text-xs text-gray-500 line-through mb-1">
                   {formatPrice(originalSubtotal + shippingAmount)}
                 </p>
-                <p className="text-sm font-medium text-green-800">
-                  {formatPrice(breakdown.total)}
-                </p>
-              </div>
+              )}
+              <p className="text-lg font-bold text-gray-900">
+                {formatPrice(breakdown.total)}
+              </p>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
-  );
+
+    {/* ✅ CTA FIXO NO MOBILE - Conversão máxima */}
+    <div className="lg:hidden border-t border-gray-200 p-4 bg-white sticky bottom-0">
+      <Button
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-semibold rounded-lg"
+        onClick={() => {
+          // Lógica do botão principal mantida
+          document.getElementById('checkout-main-cta')?.scrollIntoView();
+        }}
+      >
+        Finalizar Compra - {formatPrice(breakdown.total)}
+      </Button>
+    </div>
+  </div>
+);
 }

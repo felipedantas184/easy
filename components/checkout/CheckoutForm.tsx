@@ -9,8 +9,11 @@ import { useRouter } from 'next/navigation';
 import { getProductPrice } from '@/lib/utils/product-helpers';
 import {
   User, Mail, Phone, MapPin, Home, Map, CreditCard,
-  CheckCircle, ArrowLeft, Lock, Shield, Truck, Zap, Loader2
+  CheckCircle, ArrowLeft, Lock, Shield, Truck, Zap, Loader2,
+  ShoppingCart,
+  Check
 } from 'lucide-react';
+import { formatPrice } from '@/lib/utils/helpers';
 
 interface CheckoutFormProps {
   store: Store;
@@ -256,418 +259,322 @@ export function CheckoutForm({ store }: CheckoutFormProps) {
   };
 
   if (state.items.length === 0) {
-    return (
-      <div className="p-8 text-center">
-        <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-3xl">🛒</span>
-        </div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-3">
-          Carrinho vazio
-        </h3>
-        <p className="text-gray-600 mb-6 max-w-md mx-auto">
-          Adicione alguns produtos incríveis ao carrinho antes de finalizar sua compra.
-        </p>
-        <Button
-          onClick={() => router.push(`/${store.slug}`)}
-          className="px-8 py-3 text-lg font-semibold"
-          style={{
-            backgroundColor: store.theme.primaryColor,
-            background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
-          }}
-        >
-          Continuar Comprando
-        </Button>
-      </div>
-    );
-  }
-
-  const steps = [
-    { number: 1, title: 'Informações', icon: User },
-    { number: 2, title: 'Pagamento', icon: CreditCard },
-  ];
-
   return (
-    <div className="p-6 md:p-8">
-      {/* Progress Steps */}
-      <div className="flex justify-center mb-8">
-        <div className="flex items-center space-x-8">
-          {[
-            { number: 1, title: 'Informações', icon: User },
-            { number: 2, title: 'Pagamento', icon: CreditCard },
-          ].map((step, index) => (
-            <div key={step.number} className="flex items-center space-x-4">
-              <div className={`flex flex-col items-center ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'}`}>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${currentStep >= step.number
-                  ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
-                  : 'border-gray-300 bg-white'
-                  }`}>
-                  {currentStep > step.number ? (
-                    <CheckCircle size={20} />
-                  ) : (
-                    <step.icon size={20} />
-                  )}
-                </div>
-                <span className="text-sm font-medium mt-2">{step.title}</span>
-              </div>
-              {index < 1 && (
-                <div className={`w-16 h-0.5 transition-colors duration-300 ${currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}></div>
-              )}
-            </div>
-          ))}
-        </div>
+    <div className="p-8 text-center">
+      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <ShoppingCart size={24} className="text-gray-400" />
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Form Section */}
-        <div className="lg:col-span-2">
-          {currentStep === 1 ? (
-            <form onSubmit={handleSubmitInformation} className="space-y-8">
-              {/* Contact Information */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">Informações de Contato</h3>
-                    <p className="text-gray-600 text-sm">Como podemos entrar em contato?</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <label htmlFor="name" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                      <User size={16} />
-                      <span>Nome Completo *</span>
-                    </label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={customerInfo.name}
-                      onChange={handleInputChange}
-                      required
-                      className={`h-12 text-lg ${formErrors.name ? 'border-red-500' : ''}`}
-                      placeholder="Seu nome completo"
-                    />
-                    {formErrors.name && (
-                      <p className="text-red-500 text-sm">{formErrors.name}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <label htmlFor="email" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                      <Mail size={16} />
-                      <span>Email *</span>
-                    </label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={customerInfo.email}
-                      onChange={handleInputChange}
-                      required
-                      className={`h-12 text-lg ${formErrors.email ? 'border-red-500' : ''}`}
-                      placeholder="seu@email.com"
-                    />
-                    {formErrors.email && (
-                      <p className="text-red-500 text-sm">{formErrors.email}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3 md:col-span-2">
-                    <label htmlFor="phone" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                      <Phone size={16} />
-                      <span>Telefone/WhatsApp *</span>
-                    </label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      value={customerInfo.phone}
-                      onChange={handleInputChange}
-                      required
-                      className={`h-12 text-lg ${formErrors.phone ? 'border-red-500' : ''}`}
-                      placeholder="(11) 99999-9999"
-                    />
-                    {formErrors.phone && (
-                      <p className="text-red-500 text-sm">{formErrors.phone}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Shipping Address */}
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">Endereço de Entrega</h3>
-                    <p className="text-gray-600 text-sm">Onde devemos entregar seu pedido?</p>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <label htmlFor="address" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                      <Home size={16} />
-                      <span>Endereço Completo</span>
-                    </label>
-                    <Input
-                      id="address"
-                      name="address"
-                      value={customerInfo.address}
-                      onChange={handleInputChange}
-                      className="h-12 text-lg"
-                      placeholder="Rua, número, bairro, complemento"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-3">
-                      <label htmlFor="city" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                        <MapPin size={16} />
-                        <span>Cidade</span>
-                      </label>
-                      <Input
-                        id="city"
-                        name="city"
-                        value={customerInfo.city}
-                        onChange={handleInputChange}
-                        className="h-12 text-lg"
-                        placeholder="Sua cidade"
-                      />
-                    </div>
-
-                    <div className="space-y-3">
-                      <label htmlFor="state" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                        <Map size={16} />
-                        <span>Estado *</span>
-                      </label>
-                      <Input
-                        id="state"
-                        name="state"
-                        value={customerInfo.state}
-                        onChange={handleInputChange}
-                        className="h-12 text-lg"
-                        placeholder="SP"
-                        maxLength={2}
-                        required={store.settings.shippingSettings?.enabled}
-                      />
-                      {formErrors.state && (
-                        <p className="text-red-500 text-sm">{formErrors.state}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-3">
-                      <label htmlFor="zipCode" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                        <MapPin size={16} />
-                        <span>CEP</span>
-                      </label>
-                      <Input
-                        id="zipCode"
-                        name="zipCode"
-                        value={customerInfo.zipCode}
-                        onChange={handleInputChange}
-                        className="h-12 text-lg"
-                        placeholder="00000-000"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ✅ NOVA SEÇÃO: OPÇÕES DE FRETE */}
-              {store.settings.shippingSettings?.enabled && customerInfo.state && (
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-100">
-                  <div className="flex items-center space-x-3 mb-6">
-                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                      <Truck className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">Opções de Frete</h3>
-                      <p className="text-gray-600 text-sm">Escolha como deseja receber seu pedido</p>
-                    </div>
-                  </div>
-
-                  {calculatingShipping ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
-                      <span className="text-gray-600">Calculando opções de frete...</span>
-                    </div>
-                  ) : shippingError ? (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                      <p className="text-red-700">{shippingError}</p>
-                    </div>
-                  ) : shippingOptions.length > 0 ? (
-                    <div className="space-y-3">
-                      {shippingOptions.map((option) => (
-                        <div
-                          key={option.id}
-                          className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all ${selectedShipping?.id === option.id
-                            ? 'border-purple-500 bg-purple-50 shadow-sm'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                            }`}
-                          onClick={() => handleShippingChange(option)}
-                        >
-                          <div className="flex items-center space-x-4">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedShipping?.id === option.id
-                              ? 'border-purple-500 bg-purple-500'
-                              : 'border-gray-300'
-                              }`}>
-                              {selectedShipping?.id === option.id && (
-                                <div className="w-2 h-2 bg-white rounded-full"></div>
-                              )}
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">{option.name}</h4>
-                              <p className="text-sm text-gray-600">{option.deliveryDays}</p>
-                              {option.description && (
-                                <p className="text-xs text-gray-500 mt-1">{option.description}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-gray-900">
-                              {option.price === 0 ? 'Grátis' : `R$ ${option.price.toFixed(2)}`}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      Preencha o estado para ver as opções de frete
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-                style={{
-                  backgroundColor: store.theme.primaryColor,
-                  background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
-                }}
-              >
-                <span>Continuar para Pagamento</span>
-                <CreditCard size={20} className="ml-2" />
-              </Button>
-            </form>
-          ) : (
-            <div className="space-y-8">
-              {/* Order Confirmation */}
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
-                <div className="flex items-center space-x-3 mb-6">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                  <h3 className="text-xl font-semibold text-gray-900">Confirmação do Pedido</h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-gray-900">Informações Pessoais</h4>
-                    <div className="space-y-2 text-sm">
-                      <p><strong>Nome:</strong> {customerInfo.name}</p>
-                      <p><strong>Email:</strong> {customerInfo.email}</p>
-                      <p><strong>Telefone:</strong> {customerInfo.phone}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-gray-900">Endereço de Entrega</h4>
-                    <div className="space-y-2 text-sm">
-                      {customerInfo.address && <p>{customerInfo.address}</p>}
-                      {(customerInfo.city || customerInfo.state) && (
-                        <p>{customerInfo.city}{customerInfo.city && customerInfo.state ? ', ' : ''}{customerInfo.state}</p>
-                      )}
-                      {customerInfo.zipCode && <p>CEP: {customerInfo.zipCode}</p>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Method */}
-              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-100">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">Pagamento via PIX</h3>
-                    <p className="text-gray-600 text-sm">Aprovação instantânea e segurança garantida</p>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-6 border-2 border-purple-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                      <Zap className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">PIX - Pagamento Instantâneo</p>
-                      <p className="text-gray-600 text-sm">
-                        Pague usando PIX e tenha aprovação na hora. Mais rápido e seguro!
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Benefits */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <div className="flex items-center space-x-2 text-sm text-green-600">
-                      <Zap size={16} />
-                      <span>Aprovação Imediata</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-blue-600">
-                      <Shield size={16} />
-                      <span>100% Seguro</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-purple-600">
-                      <Truck size={16} />
-                      <span>Agiliza a Entrega</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Final CTA */}
-              <div className="space-y-4">
-                <Button
-                  onClick={handlePlaceOrder}
-                  className="w-full py-4 text-lg font-semibold rounded-xl shadow-2xl hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-                  disabled={loading}
-                  style={{
-                    backgroundColor: store.theme.primaryColor,
-                    background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
-                  }}
-                >
-                  {loading ? (
-                    <div className="flex items-center space-x-3">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Processando seu pedido...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-3">
-                      <Lock size={20} />
-                      <span>Finalizar Pedido com PIX</span>
-                    </div>
-                  )}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep(1)}
-                  className="w-full py-4 text-lg font-semibold rounded-xl border-2"
-                >
-                  <ArrowLeft size={20} className="mr-2" />
-                  Voltar para Informações
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        Carrinho vazio
+      </h3>
+      <p className="text-gray-600 mb-6">
+        Adicione produtos para finalizar sua compra
+      </p>
+      <Button
+        onClick={() => router.push(`/${store.slug}`)}
+        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
+      >
+        Continuar Comprando
+      </Button>
     </div>
   );
+}
+
+const steps = [
+  { number: 1, title: 'Dados', icon: User },
+  { number: 2, title: 'Pagamento', icon: CreditCard },
+];
+
+return (
+  <div className="p-6">
+    {/* ✅ PROGRESS STEPS SIMPLIFICADO */}
+    <div className="flex justify-center mb-8">
+      <div className="flex items-center space-x-8">
+        {steps.map((step, index) => (
+          <div key={step.number} className="flex items-center">
+            <div className={`flex flex-col items-center ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                currentStep >= step.number
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'border-gray-300 bg-white'
+              }`}>
+                {currentStep > step.number ? (
+                  <Check size={16} />
+                ) : (
+                  <step.icon size={16} />
+                )}
+              </div>
+              <span className="text-xs font-medium mt-1">{step.title}</span>
+            </div>
+            {index < steps.length - 1 && (
+              <div className={`w-12 h-0.5 mx-2 ${
+                currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
+              }`}></div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="space-y-8">
+      {currentStep === 1 ? (
+        <form onSubmit={handleSubmitInformation} id='checkout-main-cta' className="space-y-6">
+          {/* ✅ CONTACT SECTION */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">Informações de Contato</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome Completo *
+                </label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={customerInfo.name}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full"
+                  placeholder="Seu nome completo"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={customerInfo.email}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    WhatsApp *
+                  </label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={customerInfo.phone}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full"
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ SHIPPING SECTION */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">Endereço de Entrega</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                  Endereço Completo
+                </label>
+                <Input
+                  id="address"
+                  name="address"
+                  value={customerInfo.address}
+                  onChange={handleInputChange}
+                  className="w-full"
+                  placeholder="Rua, número, bairro, complemento"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                    Cidade
+                  </label>
+                  <Input
+                    id="city"
+                    name="city"
+                    value={customerInfo.city}
+                    onChange={handleInputChange}
+                    className="w-full"
+                    placeholder="Sua cidade"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
+                    Estado *
+                  </label>
+                  <Input
+                    id="state"
+                    name="state"
+                    value={customerInfo.state}
+                    onChange={handleInputChange}
+                    className="w-full"
+                    placeholder="SP"
+                    maxLength={2}
+                    required={store.settings.shippingSettings?.enabled}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
+                    CEP
+                  </label>
+                  <Input
+                    id="zipCode"
+                    name="zipCode"
+                    value={customerInfo.zipCode}
+                    onChange={handleInputChange}
+                    className="w-full"
+                    placeholder="00000-000"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ SHIPPING OPTIONS */}
+          {store.settings.shippingSettings?.enabled && customerInfo.state && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Opções de Entrega</h3>
+              
+              {calculatingShipping ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+                  <span className="text-gray-600">Calculando fretes...</span>
+                </div>
+              ) : shippingError ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                  <p className="text-red-700">{shippingError}</p>
+                </div>
+              ) : shippingOptions.length > 0 ? (
+                <div className="space-y-3">
+                  {shippingOptions.map((option) => (
+                    <div
+                      key={option.id}
+                      className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors ${
+                        selectedShipping?.id === option.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => handleShippingChange(option)}
+                    >
+                      <div className="flex items-center space-x-3 flex-1">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          selectedShipping?.id === option.id
+                            ? 'border-blue-500 bg-blue-500'
+                            : 'border-gray-300'
+                        }`}>
+                          {selectedShipping?.id === option.id && (
+                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{option.name}</h4>
+                          <p className="text-gray-600 text-sm">{option.deliveryDays}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">
+                          {option.price === 0 ? 'Grátis' : `R$ ${option.price.toFixed(2)}`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* ✅ CTA PRINCIPAL */}
+          <Button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold rounded-lg transition-colors"
+          >
+            Continuar para Pagamento
+          </Button>
+        </form>
+      ) : (
+        // ✅ STEP 2 - PAGAMENTO
+        <div className="space-y-6">
+          {/* Order Summary */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">Resumo do Pedido</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>Itens ({state.items.length})</span>
+                <span>AQUI</span>
+              </div>
+              {selectedShipping && (
+                <div className="flex justify-between">
+                  <span>Frete</span>
+                  <span>{selectedShipping.price === 0 ? 'Grátis' : formatPrice(selectedShipping.price)}</span>
+                </div>
+              )}
+              <div className="border-t pt-2 flex justify-between font-semibold">
+                <span>Total</span>
+                <span>AQUI</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">Pagamento com PIX</h3>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <Zap size={20} className="text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-blue-900">PIX Instantâneo</p>
+                  <p className="text-blue-700 text-sm">Aprovação imediata + Segurança</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ FINAL CTA OTIMIZADO */}
+          <div className="space-y-3">
+            <Button
+              onClick={handlePlaceOrder}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-4 text-lg font-semibold rounded-lg transition-colors shadow-lg"
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Processando...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-2">
+                  <Lock size={20} />
+                  <span>Finalizar Compra com PIX</span>
+                </div>
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setCurrentStep(1)}
+              className="w-full py-3 text-gray-700 border-gray-300 hover:bg-gray-50"
+            >
+              <ArrowLeft size={16} className="mr-2" />
+              Voltar para Informações
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+);
 }

@@ -145,10 +145,17 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+  <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-
+      <div 
+      className="absolute inset-0 bg-black transition-opacity duration-300"
+      style={{
+        // No mobile: backdrop sempre visível (sidebar ocupa tela toda)
+        // No desktop: backdrop só aparece quando sidebar está aberta
+        opacity: isOpen ? 0.5 : 0,
+      }}
+      onClick={onClose}
+      />
       {/* Sidebar */}
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-xl">
         <div className="flex flex-col h-full">

@@ -229,12 +229,14 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
 
+          {/**
           <div className="absolute bottom-3 left-3">
             <Badge variant="secondary" className="shadow-lg backdrop-blur-sm bg-white/90">
               <Star size={12} className="fill-yellow-400 text-yellow-400 mr-1" />
               {rating}
             </Badge>
           </div>
+           */}
         </div>
 
         <div className="p-4 space-y-3">

@@ -123,7 +123,7 @@ export function OrderSummary({ storeId }: OrderSummaryProps) {
       </div>
     </div>
 
-    <div className="p-4 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+    <div className="p-4 space-y-4 overflow-y-auto">
       {/* ✅ CUPOM DE DESCONTO */}
       <div>
         <DiscountCoupon storeId={storeId} />

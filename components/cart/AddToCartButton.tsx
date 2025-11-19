@@ -51,16 +51,9 @@ export function AddToCartButton({
       return;
     }
 
-    console.log('🛒 AddToCartButton: Adicionando ao carrinho', {
-      product: product.name,
-      variant
-    });
-
     setLoading(true);
 
     const result = await addItem(product, 1, variant);
-
-    console.log('✅ AddToCartButton: Resultado', result);
 
     if (result.success) {
       setSuccess(true);
@@ -92,7 +85,7 @@ export function AddToCartButton({
     <Button
       onClick={handleAddToCart}
       disabled={disabled || loading || isOutOfStock}
-      className={`relative overflow-hidden transition-all duration-300 ${success ? 'scale-105 bg-green-600 hover:bg-green-700' : ''
+      className={`relative overflow-hidden transition-all duration-300 w-full sm:w-auto ${success ? 'scale-105 bg-green-600 hover:bg-green-700' : ''
         } ${className}`}
       style={style}
     >

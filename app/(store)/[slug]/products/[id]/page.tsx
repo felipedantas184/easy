@@ -44,7 +44,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <main className="flex-1">
         <ProductDetails store={store} product={product} />
 
-        {/* Product Social Proof Section */}
+        {/* Product Social Proof Section 
         <section className="border-t border-gray-100 bg-gray-50">
           <div className="container mx-auto px-4 py-12">
             <div className="max-w-4xl mx-auto text-center">
@@ -53,7 +53,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Review 1 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center space-x-1 mb-3">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -66,7 +65,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   <div className="text-sm font-semibold text-gray-900">- Maria S.</div>
                 </div>
 
-                {/* Review 2 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center space-x-1 mb-3">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -79,7 +77,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   <div className="text-sm font-semibold text-gray-900">- João P.</div>
                 </div>
 
-                {/* Review 3 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center space-x-1 mb-3">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -94,7 +91,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
             </div>
           </div>
-        </section>
+        </section>*/}
       </main>
 
       <StoreFooter />

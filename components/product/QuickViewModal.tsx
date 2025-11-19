@@ -221,9 +221,9 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
       />
 
       {/* Modal Container */}
-      <div className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-4">
+      <div className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-4 md:p-6 lg:p-8">
         <div
-          className="bg-white w-full max-h-[90vh] sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl shadow-2xl transform transition-transform duration-300 sm:scale-95 sm:hover:scale-100 flex flex-col"
+          className="bg-white w-full max-h-[90vh] sm:max-h-[85vh] sm:max-w-2xl md:max-w-4xl lg:max-w-5xl sm:rounded-2xl md:rounded-3xl shadow-2xl transform transition-all duration-300 sm:scale-95 sm:hover:scale-100 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Sticky */}
@@ -308,8 +308,8 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                         key={image.id}
                         onClick={() => setSelectedImage(index)}
                         className={`aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index
-                            ? 'border-blue-500 ring-2 ring-blue-200'
-                            : 'border-transparent hover:border-gray-300'
+                          ? 'border-blue-500 ring-2 ring-blue-200'
+                          : 'border-transparent hover:border-gray-300'
                           }`}
                       >
                         <img
@@ -342,11 +342,13 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                   <Badge variant="secondary" className="text-xs">
                     {product.category}
                   </Badge>
+                  {/** 
                   <div className="flex items-center space-x-1 text-sm text-gray-600">
                     <Star size={14} className="fill-yellow-400 text-yellow-400" />
                     <span>{rating}</span>
                     <span className="text-gray-400 hidden sm:inline">({soldCount})</span>
                   </div>
+                  */}
                 </div>
 
                 {/* Nome do Produto */}
@@ -355,10 +357,11 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 </h1>
 
                 {/* Descrição */}
+                {/**
                 <p className="text-gray-600 text-sm leading-relaxed sm:text-base">
                   {product.description}
                 </p>
-
+                */}
                 {/* Gatilhos Sociais */}
                 <div className="flex items-center space-x-4 text-xs text-gray-500 sm:text-sm">
                   <div className="flex items-center space-x-1">
@@ -459,9 +462,9 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                               <button
                                 key={option.id}
                                 onClick={() => handleVariantSelect(variant, option)}
-                                className={`px-3 py-2 border rounded-lg text-xs font-medium transition-all min-w-[70px] sm:min-w-[80px] sm:px-4 sm:py-3 sm:text-sm ${selectedVariants[variant.id] === option.id
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm ring-2 ring-blue-200'
-                                    : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow-sm'
+                                className={`px-3 cursor-pointer py-2 border rounded-lg text-xs font-medium transition-all min-w-[70px] sm:min-w-[80px] sm:px-4 sm:py-3 sm:text-sm ${selectedVariants[variant.id] === option.id
+                                  ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm ring-2 ring-blue-200'
+                                  : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow-sm'
                                   } ${!option.isActive || option.stock === 0
                                     ? 'opacity-50 cursor-not-allowed grayscale'
                                     : ''
@@ -507,20 +510,26 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                     variant={selectedVariantData}
                     className="w-full text-base py-3 font-semibold rounded-xl sm:text-lg sm:py-4"
                     disabled={!isVariantComplete() || !isProductAvailable}
+                    style={{
+                      backgroundColor: store?.theme.primaryColor,
+                      borderColor: store?.theme.primaryColor,
+                    }}
                   />
 
                   {!isVariantComplete() && product.hasVariants && (
                     <p className="text-sm text-yellow-600 text-center">
-                      ⚠️ Selecione todas as opções
+                      ⚠️ Selecione uma opção
                     </p>
                   )}
 
                   {/* Mensagem para selecionar variação */}
+                  {/**
                   {product.hasVariants && Object.keys(selectedOptions).length === 0 && (
                     <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 text-center">
                       ⚡ Selecione uma opção para ver o preço específico
                     </div>
                   )}
+                     */}
 
                   {/* Link para página completa */}
                   <div className="text-center pt-2">

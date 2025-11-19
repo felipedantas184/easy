@@ -40,15 +40,15 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
   const getCurrentVariantData = () => {
     if (product.hasVariants && Object.keys(selectedOptions).length > 0) {
       const selectedOption = Object.values(selectedOptions)[0];
-      
+
       // ✅ CORREÇÃO: Lógica para detectar e corrigir preços invertidos
       const price = selectedOption.price;
       const comparePrice = selectedOption.comparePrice;
-      
+
       let actualPrice = price;
       let actualComparePrice = comparePrice;
       let hasActualDiscount = false;
-      
+
       // Se comparePrice existe E é diferente de price
       if (comparePrice && comparePrice !== price) {
         // ✅ CORREÇÃO: Determinar qual é o preço real e qual é o de comparação
@@ -64,30 +64,30 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
           hasActualDiscount = true;
         }
       }
-      
+
       const variantData = {
         price: actualPrice,
         comparePrice: actualComparePrice,
         hasDiscount: hasActualDiscount,
-        discountPercentage: hasActualDiscount 
+        discountPercentage: hasActualDiscount
           ? getDiscountPercentage(actualPrice, actualComparePrice!)
           : 0,
         economy: hasActualDiscount
           ? actualComparePrice! - actualPrice
           : 0
       };
-      
+
       return variantData;
     }
-    
+
     // Para produtos sem variações
     const basePrice = getProductPrice(product);
     const baseComparePrice = getProductComparePrice(product);
-    
+
     let actualPrice = basePrice;
     let actualComparePrice = baseComparePrice;
     let hasActualDiscount = false;
-    
+
     if (baseComparePrice && baseComparePrice !== basePrice) {
       if (baseComparePrice > basePrice) {
         actualPrice = basePrice;
@@ -99,19 +99,19 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
         hasActualDiscount = true;
       }
     }
-    
+
     const baseData = {
       price: actualPrice,
       comparePrice: actualComparePrice,
       hasDiscount: hasActualDiscount,
-      discountPercentage: hasActualDiscount 
+      discountPercentage: hasActualDiscount
         ? getDiscountPercentage(actualPrice, actualComparePrice!)
         : 0,
       economy: hasActualDiscount
         ? actualComparePrice! - actualPrice
         : 0
     };
-    
+
     return baseData;
   };
 
@@ -145,7 +145,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
       ...prev,
       [variant.id]: option.id
     }));
-    
+
     setSelectedOptions(prev => ({
       ...prev,
       [variant.id]: option
@@ -388,6 +388,8 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             <div className="inline-flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium border border-blue-200">
               <span>🏷️ {product.category}</span>
             </div>
+
+            {/**
             <button
               onClick={scrollToReviews}
               className="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"
@@ -397,6 +399,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
               <span className="text-gray-400">({reviewCount})</span>
               <ArrowRight size={14} className="text-gray-400" />
             </button>
+             */}
           </div>
 
           {/* Nome do Produto */}
@@ -429,9 +432,9 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                   <span className="text-xl text-gray-500 line-through">
                     {formatPrice(currentComparePrice)}
                   </span>
-                  <span 
+                  <span
                     className="px-3 py-1 text-sm font-bold text-white rounded-full"
-                    style={{ 
+                    style={{
                       backgroundColor: store.theme.primaryColor,
                       background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
                     }}
@@ -462,13 +465,13 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             )}
           </div>
 
-          {/* Descrição com Efeito de Digitação */}
+          {/* Descrição com Efeito de Digitação 
           <div className="prose max-w-none">
             <p className="text-gray-700 leading-relaxed text-lg border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r-lg">
               {typedDescription || product.description}
             </p>
           </div>
-
+          */}
           {/* Status do Estoque com Urgência */}
           <div className={`flex items-center space-x-3 p-4 rounded-xl border transition-all duration-300 ${currentStock <= 3
             ? 'bg-orange-50 border-orange-200 animate-pulse'
@@ -506,11 +509,11 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                       // ✅ CORREÇÃO: Lógica invertida para as opções também
                       const price = option.price;
                       const comparePrice = option.comparePrice;
-                      
+
                       let actualPrice = price;
                       let actualComparePrice = comparePrice;
                       let optionHasPromotion = false;
-                      
+
                       if (comparePrice && comparePrice !== price) {
                         if (comparePrice > price) {
                           actualPrice = price;
@@ -522,8 +525,8 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                           optionHasPromotion = true;
                         }
                       }
-                      
-                      const optionDiscount = optionHasPromotion 
+
+                      const optionDiscount = optionHasPromotion
                         ? getDiscountPercentage(actualPrice, actualComparePrice!)
                         : 0;
                       const optionEconomy = optionHasPromotion ? actualComparePrice! - actualPrice : 0;
@@ -532,33 +535,31 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                         <button
                           key={option.id}
                           onClick={() => handleVariantSelect(variant, option)}
-                          className={`px-4 py-3 border-2 rounded-xl text-sm font-semibold transition-all min-w-[100px] ${
-                            selectedVariants[variant.id] === option.id
-                              ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-lg ring-2 ring-blue-200'
-                              : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow-md'
-                          } ${
-                            !option.isActive || option.stock === 0 
-                              ? 'opacity-50 cursor-not-allowed grayscale' 
+                          className={`px-4 py-3 border-2 rounded-xl text-sm font-semibold transition-all min-w-[100px] ${selectedVariants[variant.id] === option.id
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-lg ring-2 ring-blue-200'
+                            : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow-md'
+                            } ${!option.isActive || option.stock === 0
+                              ? 'opacity-50 cursor-not-allowed grayscale'
                               : ''
-                          }`}
+                            }`}
                           disabled={!option.isActive || option.stock === 0}
                         >
                           <div className="flex flex-col items-center space-y-1">
                             <span className="font-semibold">{option.name}</span>
-                            
+
                             <div className="flex flex-col items-center space-y-1">
                               <span className="font-bold text-gray-900">
                                 {formatPrice(actualPrice)}
                               </span>
-                              
+
                               {optionHasPromotion && (
                                 <div className="flex flex-col items-center space-y-0">
                                   <span className="text-xs text-gray-500 line-through">
                                     {formatPrice(actualComparePrice!)}
                                   </span>
-                                  <span 
+                                  <span
                                     className="text-xs font-bold text-white px-2 py-0.5 rounded-full"
-                                    style={{ 
+                                    style={{
                                       backgroundColor: store.theme.primaryColor,
                                     }}
                                   >
@@ -582,12 +583,16 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
             <AddToCartButton
               product={product}
               variant={selectedVariantData}
-              className="text-lg py-4 font-semibold rounded-xl shadow-2xl hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+              className="text-lg py-4 px-6 font-bold rounded-xl shadow-2xl hover:shadow-3xl transform hover:scale-105 active:scale-95 transition-all duration-300 w-full"
               disabled={!isVariantComplete() || !isProductAvailable}
+              style={{
+                backgroundColor: store?.theme.primaryColor,
+                borderColor: store?.theme.primaryColor,
+              }}
             />
 
             {!isVariantComplete() && product.hasVariants && (
-              <p className="text-sm text-yellow-600 text-center">
+              <p className="text-sm text-yellow-600 text-center bg-yellow-50 border border-yellow-200 rounded-lg py-2 px-3">
                 ⚠️ Selecione todas as opções disponíveis para continuar
               </p>
             )}
@@ -632,7 +637,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
               </a>
             )}
 
-            {/* Trust Badges Mobile */}
+            {/* Trust Badges Mobile 
             <div className="lg:hidden grid grid-cols-2 gap-3 pt-6">
               {trustFeatures.map((feature, index) => (
                 <div key={index} className="flex items-center space-x-2 text-sm text-gray-600 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -640,10 +645,10 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                   <span className="font-medium">{feature.text}</span>
                 </div>
               ))}
-            </div>
+            </div>*/}
           </div>
 
-          {/* Trust Badges Desktop */}
+          {/* Trust Badges Desktop
           <div className="hidden lg:grid lg:grid-cols-2 gap-4 pt-6">
             {trustFeatures.map((feature, index) => (
               <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
@@ -655,7 +660,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                 </div>
               </div>
             ))}
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -674,7 +679,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                   {product.description}
                 </p>
 
-                {/* Características */}
+                {/* Características 
                 <div className="mt-6 space-y-3 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                   <h3 className="font-semibold text-gray-900 mb-4">✨ Características Principais</h3>
                   <div className="space-y-2">
@@ -695,7 +700,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                       <span>Suporte técnico especializado</span>
                     </div>
                   </div>
-                </div>
+                </div>*/}
               </div>
             </div>
 
@@ -728,17 +733,18 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                       }
                     </span>
                   </div>
+                  {/**
                   <div className="flex justify-between py-3">
                     <span className="font-medium text-gray-600">Avaliação</span>
                     <span className="font-semibold text-gray-900 flex items-center space-x-1">
                       <Star size={16} className="text-yellow-400 fill-current" />
                       <span>{rating}/5</span>
                     </span>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
-              {/* Seção de Reviews */}
+              {/* Seção de Reviews 
               <div id="reviews-section">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
                   <span>⭐</span>
@@ -772,7 +778,7 @@ export function ProductDetails({ store, product }: ProductDetailsProps) {
                     Ver Todas as Avaliações
                   </Button>
                 </div>
-              </div>
+              </div>*/}
             </div>
           </div>
         </div>

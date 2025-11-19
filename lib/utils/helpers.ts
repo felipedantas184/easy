@@ -22,3 +22,16 @@ export function formatDate(date: Date | string): string {
     minute: '2-digit'
   });
 }
+
+export function getFirstAndLastName(fullName?: string | null): string {
+  if (!fullName) return 'Usuário';
+
+  const parts = fullName.trim().split(/\s+/);
+
+  if (parts.length === 1) return parts[0]; // só um nome
+
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+
+  return `${first} ${last}`;
+}

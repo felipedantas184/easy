@@ -239,54 +239,31 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
 
     return (
       <div className="space-y-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <Info size={16} className="text-blue-600" />
-            <p className="text-sm text-blue-700">
-              Produto sem variações. Configure o preço, preço promocional e estoque abaixo.
-            </p>
-          </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start space-x-3">
+          <Info size={18} className="text-blue-600 mt-1" />
+          <p className="text-sm text-blue-700 leading-relaxed">
+            Produto sem variações. Configure o preço, preço promocional e estoque abaixo.
+          </p>
         </div>
 
-        {/* TABELA SIMPLIFICADA - UMA LINHA APENAS */}
-        <div className="border rounded-lg overflow-hidden">
-          {/* Cabeçalho da tabela */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-gray-50 px-4 py-3 border-b text-sm font-medium text-gray-700">
-            <div className="md:col-span-3">SKU *</div>
-            <div className="md:col-span-2">Preço *</div>
-            <div className="md:col-span-2">Preço Promocional</div>
-            <div className="md:col-span-2">Estoque *</div>
-            <div className="md:col-span-3">Status</div>
-          </div>
+        {/* CARD PRINCIPAL */}
+        <div className="mt-4 p-4 border rounded-xl bg-white shadow-sm space-y-6">
 
-          {/* Linha única de dados */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 px-4 py-3 items-center">
-            {/* SKU */}
-            <div className="md:col-span-3 space-y-1">
-              <Input
-                value={defaultOption.sku}
-                onChange={(e) => updateOption(defaultVariant.id, defaultOption.id, 'sku', e.target.value)}
-                placeholder="SKU001"
-                required
-                className={skuError ? 'border-red-500' : ''}
-              />
-              {skuError && (
-                <p className="text-red-500 text-xs flex items-center space-x-1">
-                  <AlertTriangle size={12} />
-                  <span>{skuError}</span>
-                </p>
-              )}
-            </div>
+          {/* GRID DE PREÇOS + ESTOQUE */}
+          <div className="grid sm:grid-cols-3 gap-6">
 
-            {/* Preço Normal */}
-            <div className="md:col-span-2 space-y-1">
+            {/* Preço */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Preço *</label>
               <Input
                 type="text"
-                value={defaultOption.price > 0 ? formatPrice(defaultOption.price) : ''}
-                onChange={(e) => handlePriceChange(defaultVariant.id, defaultOption.id, 'price', e.target.value)}
+                value={defaultOption.price > 0 ? formatPrice(defaultOption.price) : ""}
+                onChange={(e) =>
+                  handlePriceChange(defaultVariant.id, defaultOption.id, "price", e.target.value)
+                }
                 placeholder="R$ 0,00"
                 required
-                className={priceError ? 'border-red-500' : ''}
+                className={priceError ? "border-red-500" : ""}
               />
               {priceError && (
                 <p className="text-red-500 text-xs flex items-center space-x-1">
@@ -297,45 +274,81 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
             </div>
 
             {/* Preço Promocional */}
-            <div className="md:col-span-2 space-y-1">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Preço Promocional</label>
               <Input
                 type="text"
-                value={defaultOption.comparePrice ? formatPrice(defaultOption.comparePrice) : ''}
-                onChange={(e) => handlePriceChange(defaultVariant.id, defaultOption.id, 'comparePrice', e.target.value)}
+                value={defaultOption.comparePrice ? formatPrice(defaultOption.comparePrice) : ""}
+                onChange={(e) =>
+                  handlePriceChange(
+                    defaultVariant.id,
+                    defaultOption.id,
+                    "comparePrice",
+                    e.target.value
+                  )
+                }
                 placeholder="R$ 0,00"
-                className={comparePriceError ? 'border-red-500' : ''}
+                className={comparePriceError ? "border-red-500" : ""}
               />
-              {comparePriceError ? (
+
+              {comparePriceError && (
                 <p className="text-red-500 text-xs flex items-center space-x-1">
                   <AlertTriangle size={12} />
                   <span>{comparePriceError}</span>
                 </p>
-              ) :
-                (<></>
-                )}
+              )}
             </div>
 
             {/* Estoque */}
-            <div className="md:col-span-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Estoque *</label>
               <Input
                 type="number"
                 min="0"
                 value={defaultOption.stock}
-                onChange={(e) => updateOption(defaultVariant.id, defaultOption.id, 'stock', parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  updateOption(
+                    defaultVariant.id,
+                    defaultOption.id,
+                    "stock",
+                    parseInt(e.target.value) || 0
+                  )
+                }
                 placeholder="0"
                 required
               />
             </div>
-
-            {/* Status */}
-            <div className="md:col-span-3">
-              <StockStatus stock={defaultOption.stock} />
-            </div>
           </div>
+
+          {/* SKU */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">SKU *</label>
+            <Input
+              value={defaultOption.sku}
+              onChange={(e) =>
+                updateOption(defaultVariant.id, defaultOption.id, "sku", e.target.value)
+              }
+              placeholder="SKU001"
+              required
+              className={skuError ? "border-red-500" : ""}
+            />
+            {skuError && (
+              <p className="text-red-500 text-xs flex items-center space-x-1">
+                <AlertTriangle size={12} />
+                <span>{skuError}</span>
+              </p>
+            )}
+          </div>
+
+          {/* STATUS 
+          <div className="border rounded-lg p-4 bg-gray-50">
+            <label className="text-sm font-medium text-gray-700 block mb-1">Status</label>
+            <StockStatus stock={defaultOption.stock} />
+          </div>*/}
         </div>
 
-        {/* Resumo do Estoque */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg space-y-2 sm:space-y-0">
+        {/* RESUMO DO ESTOQUE */}
+        <div className="mt-4 p-4 bg-gray-50 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
           <div className="flex items-center space-x-2">
             <Package size={16} className="text-gray-600" />
             <span className="text-sm text-gray-700">
@@ -343,17 +356,21 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
             </span>
           </div>
 
-          {defaultOption.comparePrice && defaultOption.comparePrice < defaultOption.price && (
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500 line-through">
-                {formatPrice(defaultOption.price)}
-              </span>
-              <span className="text-lg font-bold text-green-600">
-                {formatPrice(defaultOption.comparePrice)}
-              </span>
-              <DiscountBadge price={defaultOption.comparePrice} comparePrice={defaultOption.price} />
-            </div>
-          )}
+          {defaultOption.comparePrice &&
+            defaultOption.comparePrice < defaultOption.price && (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-500 line-through">
+                  {formatPrice(defaultOption.price)}
+                </span>
+                <span className="text-lg font-bold text-green-600">
+                  {formatPrice(defaultOption.comparePrice)}
+                </span>
+                <DiscountBadge
+                  price={defaultOption.comparePrice}
+                  comparePrice={defaultOption.price}
+                />
+              </div>
+            )}
         </div>
       </div>
     );
@@ -363,196 +380,221 @@ export function VariantManager({ variants, hasVariants, onChange }: VariantManag
   return (
     <div className="space-y-6">
       {/* Adicionar Nova Variação */}
-      <div className="flex space-x-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Input
           placeholder="Nome da variação (ex: Tamanho, Cor)"
           value={newVariantName}
           onChange={(e) => setNewVariantName(e.target.value)}
           className="flex-1"
         />
-        <Button onClick={addVariant} type="button">
+
+        <Button
+          onClick={addVariant}
+          type="button"
+          className="w-full sm:w-auto flex items-center justify-center"
+        >
           <Plus size={16} className="mr-2" />
           Adicionar Variação
         </Button>
       </div>
 
       {/* Lista de Variações */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         {variants.map((variant, variantIndex) => (
-          <div key={variant.id} className="border rounded-lg overflow-hidden">
-            {/* Cabeçalho da Variação - EDITÁVEL */}
-            <div className="flex items-center justify-between bg-gray-50 px-4 py-3 border-b">
-              <div className="flex-1">
-                <div className="flex items-center space-x-3">
-                  <Input
-                    value={variant.name}
-                    onChange={(e) => {
-                      const updatedVariants = variants.map((v, index) =>
-                        index === variantIndex
-                          ? { ...v, name: e.target.value }
-                          : v
-                      );
-                      onChange(updatedVariants);
-                    }}
-                    placeholder="Nome da variação"
-                    className="text-lg font-semibold border-none bg-transparent p-0 focus:bg-white focus:border focus:px-2 focus:py-1 transition-all"
-                  />
-                </div>
-                <p className="text-sm text-gray-600 mt-1">
-                  {variant.options.length} opção{variant.options.length !== 1 ? 'es' : ''} •
-                  Estoque: {variant.options.reduce((sum, opt) => sum + opt.stock, 0)} unidades
+          <div key={variant.id} className="border rounded-xl bg-white shadow-sm overflow-hidden">
+
+            {/* CABEÇALHO DA VARIAÇÃO */}
+            <div className="flex items-center justify-between bg-gray-50 px-5 py-4 border-b">
+              <div className="flex-1 space-y-1">
+                <Input
+                  value={variant.name}
+                  onChange={(e) => {
+                    const updated = variants.map((v, i) =>
+                      i === variantIndex ? { ...v, name: e.target.value } : v
+                    );
+                    onChange(updated);
+                  }}
+                  placeholder="Nome da variação"
+                  className="
+              text-lg font-semibold border-none bg-transparent p-0 
+              focus:bg-white focus:border focus:px-2 focus:py-1 
+              transition-all
+            "
+                />
+
+                <p className="text-sm text-gray-600">
+                  {variant.options.length}{' '}
+                  {variant.options.length === 1 ? 'opção' : 'opções'}
+                  {' • Estoque total: '}
+                  {variant.options.reduce((sum, opt) => sum + opt.stock, 0)} unidades
                 </p>
               </div>
+
               {variants.length > 1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeVariant(variant.id)}
-                >
+                <Button variant="outline" size="sm" onClick={() => removeVariant(variant.id)}>
                   <Trash2 size={16} />
                 </Button>
               )}
             </div>
 
-            {/* Tabela de Opções */}
-            <div className="space-y-4 p-4">
-              {/* Cabeçalho da tabela - Responsivo */}
-              <div className="hidden md:grid md:grid-cols-12 gap-2 text-sm font-medium text-gray-700 pb-2">
-                <div className="md:col-span-2">Opção</div>
-                <div className="md:col-span-2">SKU *</div>
-                <div className="md:col-span-2">Preço *</div>
-                <div className="md:col-span-2">Preço Promocional</div>
-                <div className="md:col-span-1">Estoque *</div>
-                <div className="md:col-span-2">Status</div>
-                <div className="md:col-span-1">Ação</div>
-              </div>
+            {/* LISTA DE OPÇÕES */}
+            <div className="p-2 md:p-5 space-y-6">
 
-              {/* Linhas de opções */}
               {variant.options.map((option) => {
                 const priceError = validationErrors[`${variant.id}-${option.id}-price`];
-                const comparePriceError = validationErrors[`${variant.id}-${option.id}-comparePrice`];
+                const comparePriceError =
+                  validationErrors[`${variant.id}-${option.id}-comparePrice`];
                 const skuError = validateUniqueSKU(option.sku, variant.id, option.id);
-                const stockStatus = getStockStatus(option.stock);
 
                 return (
-                  <div key={option.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start py-4 border-t first:border-t-0">
-                    {/* Nome da Opção */}
-                    <div className="md:col-span-2 space-y-1">
-                      <label className="md:hidden text-xs font-medium text-gray-500">Opção</label>
+                  <div
+                    key={option.id}
+                    className="border rounded-lg p-4 bg-gray-50 space-y-4 relative"
+                  >
+                    {/* Botão remover */}
+                    <button
+                      disabled={variant.options.length === 1}
+                      onClick={() => removeOption(variant.id, option.id)}
+                      className="absolute top-3 right-3 text-gray-400 hover:text-red-600 transition"
+                    >
+                      <X size={16} />
+                    </button>
+
+                    {/* NOME DA OPÇÃO */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-600">Opção</label>
                       <Input
                         value={option.name}
-                        onChange={(e) => updateOption(variant.id, option.id, 'name', e.target.value)}
-                        placeholder="Ex: P, M, G, Azul"
+                        onChange={(e) =>
+                          updateOption(variant.id, option.id, 'name', e.target.value)
+                        }
+                        placeholder="Ex: 38, Azul, M"
                         required
                       />
                     </div>
 
-                    {/* SKU */}
-                    <div className="md:col-span-2 space-y-1">
-                      <label className="md:hidden text-xs font-medium text-gray-500">SKU *</label>
-                      <Input
-                        value={option.sku}
-                        onChange={(e) => updateOption(variant.id, option.id, 'sku', e.target.value)}
-                        placeholder="SKU único"
-                        required
-                        className={skuError ? 'border-red-500' : ''}
-                      />
-                      {skuError && (
-                        <p className="text-red-500 text-xs flex items-center space-x-1">
-                          <AlertTriangle size={12} />
-                          <span>{skuError}</span>
-                        </p>
-                      )}
+                    {/* GRID DOS CAMPOS */}
+                    <div className="grid sm:grid-cols-4 gap-4">
+
+                      {/* PREÇO */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">Preço *</label>
+                        <Input
+                          type="text"
+                          value={option.price > 0 ? formatPrice(option.price) : ''}
+                          onChange={(e) =>
+                            handlePriceChange(variant.id, option.id, 'price', e.target.value)
+                          }
+                          placeholder="R$ 0,00"
+                          className={priceError ? 'border-red-500' : ''}
+                        />
+                        {priceError && (
+                          <p className="text-red-500 text-xs flex items-center space-x-1">
+                            <AlertTriangle size={12} />
+                            <span>{priceError}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* PREÇO PROMOCIONAL */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">
+                          Preço Promocional
+                        </label>
+                        <Input
+                          type="text"
+                          value={option.comparePrice ? formatPrice(option.comparePrice) : ''}
+                          onChange={(e) =>
+                            handlePriceChange(
+                              variant.id,
+                              option.id,
+                              'comparePrice',
+                              e.target.value
+                            )
+                          }
+                          placeholder="R$ 0,00"
+                          className={comparePriceError ? 'border-red-500' : ''}
+                        />
+
+                        {comparePriceError && (
+                          <p className="text-red-500 text-xs flex items-center space-x-1">
+                            <AlertTriangle size={12} />
+                            <span>{comparePriceError}</span>
+                          </p>
+                        )}
+
+                        {/**
+                        {!comparePriceError &&
+                          option.comparePrice &&
+                          option.comparePrice < option.price && (
+                            <div className="text-green-600 text-xs font-medium mt-1 flex items-center space-x-2">
+                              <span className="line-through text-gray-500">
+                                {formatPrice(option.price)}
+                              </span>
+                              <span>→</span>
+                              <span>{formatPrice(option.comparePrice)}</span>
+                            </div>
+                          )}
+                             */}
+                      </div>
+
+                      {/* ESTOQUE */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">Estoque *</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={option.stock}
+                          onChange={(e) =>
+                            updateOption(
+                              variant.id,
+                              option.id,
+                              'stock',
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          required
+                        />
+                      </div>
+
+                      {/* SKU */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">SKU *</label>
+                        <Input
+                          value={option.sku}
+                          onChange={(e) =>
+                            updateOption(variant.id, option.id, 'sku', e.target.value)
+                          }
+                          placeholder="SKU-Único"
+                          className={skuError ? 'border-red-500' : ''}
+                        />
+                        {skuError && (
+                          <p className="text-red-500 text-xs flex items-center space-x-1">
+                            <AlertTriangle size={12} />
+                            <span>{skuError}</span>
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Preço Normal */}
-                    <div className="md:col-span-2 space-y-1">
-                      <label className="md:hidden text-xs font-medium text-gray-500">Preço *</label>
-                      <Input
-                        type="text"
-                        value={option.price > 0 ? formatPrice(option.price) : ''}
-                        onChange={(e) => handlePriceChange(variant.id, option.id, 'price', e.target.value)}
-                        placeholder="R$ 0,00"
-                        required
-                        className={priceError ? 'border-red-500' : ''}
-                      />
-                      {priceError && (
-                        <p className="text-red-500 text-xs flex items-center space-x-1">
-                          <AlertTriangle size={12} />
-                          <span>{priceError}</span>
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Preço Promocional */}
-                    <div className="md:col-span-2 space-y-1">
-                      <label className="md:hidden text-xs font-medium text-gray-500">Preço Promocional</label>
-                      <Input
-                        type="text"
-                        value={option.comparePrice ? formatPrice(option.comparePrice) : ''}
-                        onChange={(e) => handlePriceChange(variant.id, option.id, 'comparePrice', e.target.value)}
-                        placeholder="R$ 0,00"
-                        className={comparePriceError ? 'border-red-500' : ''}
-                      />
-                      {comparePriceError ? (
-                        <p className="text-red-500 text-xs flex items-center space-x-1">
-                          <AlertTriangle size={12} />
-                          <span>{comparePriceError}</span>
-                        </p>
-                      ) : option.comparePrice && option.comparePrice < option.price && (
-                        <DiscountBadge price={option.price} comparePrice={option.comparePrice} />
-                      )}
-                    </div>
-
-                    {/* Estoque */}
-                    <div className="md:col-span-1 space-y-1">
-                      <label className="md:hidden text-xs font-medium text-gray-500">Estoque *</label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={option.stock}
-                        onChange={(e) => updateOption(variant.id, option.id, 'stock', parseInt(e.target.value) || 0)}
-                        required
-                      />
-                    </div>
-
-                    {/* Status */}
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="md:hidden text-xs font-medium text-gray-500">Status</label>
+                    {/* STATUS 
+                    <div className="pt-2">
                       <StockStatus stock={option.stock} />
-                      {option.comparePrice && option.comparePrice < option.price && (
-                        <div className="flex items-center space-x-2 text-sm text-green-600">
-                          <span className="line-through">{formatPrice(option.price)}</span>
-                          <span>→</span>
-                          <span className="font-bold">{formatPrice(option.comparePrice)}</span>
-                        </div>
-                      )}
                     </div>
-
-                    {/* Botão Remover */}
-                    <div className="md:col-span-1 flex md:absolute md:relative md:col-span-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeOption(variant.id, option.id)}
-                        disabled={variant.options.length === 1}
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
+                    */}
                   </div>
                 );
               })}
 
-              {/* Botão Adicionar Opção */}
+              {/* BOTÃO ADICIONAR OPÇÃO */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => addOption(variant.id)}
-                className="w-full mt-4"
+                className="w-full"
               >
                 <Plus size={16} className="mr-2" />
-                Adicionar Opção à {variant.name}
+                Adicionar opção à {variant.name}
               </Button>
             </div>
           </div>

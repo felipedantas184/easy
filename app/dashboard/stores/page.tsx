@@ -59,22 +59,27 @@ export default function StoresPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Minhas Lojas</h1>
-          <p className="text-gray-600 mt-1">
-            {stores.length === 0 
-              ? 'Crie sua primeira loja virtual' 
-              : `Você tem ${stores.length} loja(s) ativa(s)`
-            }
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            Minhas Lojas
+          </h1>
+
+          <p className="text-gray-600 mt-1 text-sm md:text-base">
+            {stores.length === 0
+              ? 'Crie sua primeira loja virtual'
+              : `Você tem ${stores.length} loja(s) ativa(s)`}
           </p>
         </div>
-        <Link href="/dashboard/stores/new">
-          <Button className="bg-blue-600 hover:bg-blue-700">
+
+        {/**
+        <Link href="/dashboard/stores/new" className="w-full md:w-auto">
+          <Button className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 transition-all duration-200">
             <Plus className="w-4 h-4 mr-2" />
             Nova Loja
           </Button>
         </Link>
+         */}
       </div>
 
       {/* Stores Grid */}
@@ -85,7 +90,7 @@ export default function StoresPage() {
             Nenhuma loja criada
           </h3>
           <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            Crie sua primeira loja virtual para começar a vender online. 
+            Crie sua primeira loja virtual para começar a vender online.
             É rápido, fácil e não requer conhecimento técnico.
           </p>
           <Link href="/dashboard/stores/new">
@@ -98,9 +103,9 @@ export default function StoresPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stores.map((store) => (
-            <StoreCard 
-              key={store.id} 
-              store={store} 
+            <StoreCard
+              key={store.id}
+              store={store}
               onUpdate={loadStores}
             />
           ))}

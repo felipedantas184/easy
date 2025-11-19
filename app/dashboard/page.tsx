@@ -7,7 +7,8 @@ import { Store, Package, ShoppingCart, Users, TrendingUp, ArrowUpRight, Eye, Plu
 import { useState, useEffect } from 'react';
 import { Store as StoreType, Order } from '@/types';
 import { storeServiceNew } from '@/lib/firebase/store-service-new';
-import { orderServiceNew } from '@/lib/firebase/firestore-new';
+import { orderServiceNew, productServiceNew } from '@/lib/firebase/firestore-new';
+import { getFirstAndLastName } from '@/lib/utils/helpers';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -19,7 +20,7 @@ export default function DashboardPage() {
     totalProducts: 0,
     totalOrders: 0,
     totalRevenue: 0,
-    monthlyGrowth: 12.5, // Mock data - você pode calcular isso
+    averageTicket: 0, // ✅ NOVO
   });
 
   useEffect(() => {
@@ -34,32 +35,40 @@ export default function DashboardPage() {
           let allOrders: Order[] = [];
           let totalRevenue = 0;
           let totalProducts = 0;
+          let paidOrdersCount = 0; // ✅ NOVO: contar pedidos pagos
 
           for (const store of userStores) {
+            // ✅ BUSCAR PEDIDOS DA LOJA
             const storeOrders = await orderServiceNew.getStoreOrders(store.id);
             allOrders = [...allOrders, ...storeOrders];
-            
+
+            // ✅ BUSCAR PRODUTOS DA LOJA (CORREÇÃO ADICIONADA)
+            const storeProducts = await productServiceNew.getStoreProducts(store.id);
+            totalProducts += storeProducts.length; // ✅ AGORA CONTA OS PRODUTOS
+
             // Calcular revenue
             storeOrders.forEach(order => {
               if (order.paymentStatus === 'confirmed') {
                 totalRevenue += order.total;
+                paidOrdersCount += 1; // ✅ NOVO: contar pedido pago
               }
             });
           }
 
           // Ordenar por data e pegar os 5 mais recentes
-          const sortedOrders = allOrders.sort((a, b) => 
+          const sortedOrders = allOrders.sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           ).slice(0, 5);
 
           setRecentOrders(sortedOrders);
+          const averageTicket = paidOrdersCount > 0 ? totalRevenue / paidOrdersCount : 0;
 
           setStats({
             totalStores: userStores.length,
             totalProducts: totalProducts,
             totalOrders: allOrders.length,
             totalRevenue,
-            monthlyGrowth: 12.5,
+            averageTicket, // ✅ NOVO
           });
 
         } catch (error) {
@@ -112,7 +121,7 @@ export default function DashboardPage() {
           </div>
           <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="bg-white rounded-xl border p-6 animate-pulse">
@@ -136,12 +145,13 @@ export default function DashboardPage() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">
-            Olá, {user?.profile?.displayName || 'Usuário'}! 👋
+            Olá, {getFirstAndLastName(user?.profile?.displayName)}! 👋
           </h1>
           <p className="text-gray-600 text-lg">
             Bem-vindo ao painel de controle da sua plataforma Easy.
           </p>
         </div>
+        {/**
         <div className="flex flex-col sm:flex-row gap-3">
           <Link href="/dashboard/stores/new">
             <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/25 transition-all duration-200">
@@ -156,19 +166,11 @@ export default function DashboardPage() {
             </Button>
           </Link>
         </div>
+         */}
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="Lojas Ativas"
-          value={stats.totalStores.toString()}
-          description={`+${stats.monthlyGrowth}% este mês`}
-          icon={Store}
-          color="blue"
-          trend={{ value: stats.monthlyGrowth, isPositive: true }}
-        />
-        
         <StatsCard
           title="Total de Pedidos"
           value={stats.totalOrders.toString()}
@@ -176,7 +178,7 @@ export default function DashboardPage() {
           icon={ShoppingCart}
           color="green"
         />
-        
+
         <StatsCard
           title="Receita Total"
           value={formatPrice(stats.totalRevenue)}
@@ -184,7 +186,15 @@ export default function DashboardPage() {
           icon={TrendingUp}
           color="purple"
         />
-        
+
+        <StatsCard
+          title="Ticket Médio"
+          value={formatPrice(stats.averageTicket)}
+          description="Por pedido pago"
+          icon={Users}
+          color="blue"
+        />
+
         <StatsCard
           title="Produtos Ativos"
           value={stats.totalProducts.toString()}
@@ -211,8 +221,8 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-            
-            <div className="p-6">
+
+            <div className="p-4">
               {recentOrders.length === 0 ? (
                 <div className="text-center py-12">
                   <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -222,15 +232,20 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-4">
                   {recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between p-4 rounded-xl border border-gray-200/60 hover:border-blue-200 hover:bg-blue-50/50 transition-all duration-200 group">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
-                          #{order.id.slice(-4)}
+                    <div
+                      key={order.id}
+                      className="p-4 rounded-xl border border-gray-200/60 hover:border-blue-200 hover:bg-blue-50/50 transition-all duration-200 group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      {/* Left section */}
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm shrink-0">
+                          #{order.id.slice(-3)}
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 group-hover:text-blue-900 transition-colors">
+
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 group-hover:text-blue-900 transition-colors truncate">
                             {order.customerInfo.name}
                           </p>
+
                           <p className="text-sm text-gray-600">
                             {new Date(order.createdAt).toLocaleDateString('pt-BR', {
                               day: '2-digit',
@@ -240,10 +255,14 @@ export default function DashboardPage() {
                           </p>
                         </div>
                       </div>
-                      
-                      <div className="text-right">
-                        <p className="font-bold text-gray-900 text-lg">{formatPrice(order.total)}</p>
-                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(order.status)}`}>
+
+                      {/* Right section */}
+                      <div className="flex flex-row sm:flex-col sm:items-end justify-between sm:justify-center gap-2 w-full sm:w-auto">
+                        <p className="font-bold text-gray-900 text-lg whitespace-nowrap">
+                          {formatPrice(order.total)}
+                        </p>
+
+                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border whitespace-nowrap ${getStatusColor(order.status)}`}>
                           {getStatusText(order.status)}
                         </span>
                       </div>
@@ -262,15 +281,17 @@ export default function DashboardPage() {
             <div className="p-6 border-b border-gray-200/60">
               <h2 className="text-xl font-semibold text-gray-900">Ações Rápidas</h2>
             </div>
-            <div className="p-6 space-y-4">
-              <Link href="/dashboard/stores/new">
-                <div className="group p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 cursor-pointer text-center">
-                  <Store className="w-8 h-8 text-gray-400 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
-                  <p className="font-semibold text-gray-900 group-hover:text-blue-900">Criar Nova Loja</p>
-                  <p className="text-sm text-gray-500 mt-1">Comece a vender online</p>
-                </div>
-              </Link>
-              
+            <div className="p-6 grid gap-4">
+              {stores.length === 0 && (
+                <Link href="/dashboard/stores/new">
+                  <div className="group p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 cursor-pointer text-center">
+                    <Store className="w-8 h-8 text-gray-400 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
+                    <p className="font-semibold text-gray-900 group-hover:text-blue-900">Criar Nova Loja</p>
+                    <p className="text-sm text-gray-500 mt-1">Comece a vender online</p>
+                  </div>
+                </Link>
+              )}
+
               <Link href="/dashboard/products/new">
                 <div className="group p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-green-500 hover:bg-green-50/50 transition-all duration-200 cursor-pointer text-center">
                   <Package className="w-8 h-8 text-gray-400 group-hover:text-green-500 mx-auto mb-3 transition-colors" />
@@ -278,7 +299,7 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500 mt-1">Cadastre novos produtos</p>
                 </div>
               </Link>
-              
+
               <Link href="/dashboard/orders">
                 <div className="group p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-500 hover:bg-purple-50/50 transition-all duration-200 cursor-pointer text-center">
                   <ShoppingCart className="w-8 h-8 text-gray-400 group-hover:text-purple-500 mx-auto mb-3 transition-colors" />
@@ -314,7 +335,7 @@ export default function DashboardPage() {
                     </div>
                   </Link>
                 ))}
-                
+
                 {stores.length > 3 && (
                   <Link href="/dashboard/stores">
                     <Button variant="outline" className="w-full border-gray-300 hover:border-blue-300 hover:bg-blue-50">

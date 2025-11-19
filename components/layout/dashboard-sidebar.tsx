@@ -14,8 +14,10 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils/helpers';
+import { Store as StoreType } from '@/types';
+import { storeServiceNew } from '@/lib/firebase/store-service-new';
 
 interface DashboardSidebarProps {
   isOpen?: boolean;
@@ -26,6 +28,22 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [stores, setStores] = useState<StoreType[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      if (user) {
+        try {
+          const userStores = await storeServiceNew.getUserStores(user.id);
+          setStores(userStores);
+        } catch (error) {
+          console.error('Erro ao carregar dados do dashboard:', error);
+        }
+      }
+    }
+
+    loadData();
+  }, [user]);
 
   const menuItems = [
     {
@@ -40,7 +58,7 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
       label: 'Minhas Lojas',
       subItems: [
         { href: '/dashboard/stores', label: 'Todas as Lojas' },
-        { href: '/dashboard/stores/new', label: 'Criar Nova Loja' },
+        ...(stores && stores.length === 0 ? [{ href: '/dashboard/stores/new', label: 'Criar Loja' }] : [])
       ]
     },
     {

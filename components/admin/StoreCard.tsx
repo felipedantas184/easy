@@ -9,8 +9,9 @@ import {
   MoreVertical 
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { storeServiceNew } from '@/lib/firebase/store-service-new';
+import { productServiceNew, orderServiceNew } from '@/lib/firebase/firestore-new'; // ✅ ADICIONAR IMPORTS
 
 interface StoreCardProps {
   store: Store;
@@ -20,6 +21,31 @@ interface StoreCardProps {
 export function StoreCard({ store, onUpdate }: StoreCardProps) {
   const [loading, setLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [stats, setStats] = useState({
+    productsCount: 0,
+    ordersCount: 0
+  });
+
+  // ✅ NOVO: Buscar estatísticas reais da loja
+  useEffect(() => {
+    async function loadStoreStats() {
+      try {
+        // Buscar produtos da loja
+        const products = await productServiceNew.getStoreProducts(store.id);
+        // Buscar pedidos da loja
+        const orders = await orderServiceNew.getStoreOrders(store.id);
+        
+        setStats({
+          productsCount: products.length,
+          ordersCount: orders.length
+        });
+      } catch (error) {
+        console.error('Erro ao carregar estatísticas da loja:', error);
+      }
+    }
+
+    loadStoreStats();
+  }, [store.id]); // ✅ Recarregar quando o ID da loja mudar
 
   const handleDelete = async () => {
     if (!confirm('Tem certeza que deseja excluir esta loja?')) {
@@ -110,14 +136,14 @@ export function StoreCard({ store, onUpdate }: StoreCardProps) {
           </p>
         )}
 
-        {/* Stats */}
+        {/* Stats - ✅ AGORA COM DADOS REAIS */}
         <div className="grid grid-cols-3 gap-4 text-center border-t pt-4">
           <div>
-            <div className="text-sm font-medium text-gray-900">0</div>
+            <div className="text-sm font-medium text-gray-900">{stats.productsCount}</div>
             <div className="text-xs text-gray-500">Produtos</div>
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-900">0</div>
+            <div className="text-sm font-medium text-gray-900">{stats.ordersCount}</div>
             <div className="text-xs text-gray-500">Pedidos</div>
           </div>
           <div>

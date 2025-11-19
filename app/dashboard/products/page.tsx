@@ -14,12 +14,12 @@ export default function ProductsPage() {
   const { user } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  
-  const { 
-    products, 
-    loading, 
-    error, 
-    deleteProduct 
+
+  const {
+    products,
+    loading,
+    error,
+    deleteProduct
   } = useProducts(selectedStoreId);
 
   // Carregar lojas do usuário
@@ -29,7 +29,7 @@ export default function ProductsPage() {
         try {
           const userStores = await storeServiceNew.getUserStores(user.id);
           setStores(userStores);
-          
+
           // Selecionar primeira loja por padrão
           if (userStores.length > 0 && !selectedStoreId) {
             setSelectedStoreId(userStores[0].id);
@@ -75,17 +75,21 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Título + subtítulo */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Produtos
+          </h1>
           <p className="text-gray-600 mt-1">
             Gerencie os produtos das suas lojas
           </p>
         </div>
-        
-        <Link href="/dashboard/products/new">
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
+
+        {/* Botão */}
+        <Link href="/dashboard/products/new" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2">
+            <Plus className="w-4 h-4" />
             Novo Produto
           </Button>
         </Link>
@@ -119,7 +123,7 @@ export default function ProductsPage() {
               {error}
             </div>
           )}
-          
+
           <ProductTable
             products={products}
             onDelete={deleteProduct}

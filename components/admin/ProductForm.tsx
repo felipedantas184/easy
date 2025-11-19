@@ -73,7 +73,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     if (autoSEO && (formData.name || formData.description)) {
       const newTitle = generateSEOTitle(formData.name);
       const newDescription = generateSEODescription(formData.description);
-      
+
       setFormData(prev => ({
         ...prev,
         seo: {
@@ -302,7 +302,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const handleUpdateSEO = () => {
     const newTitle = generateSEOTitle(formData.name);
     const newDescription = generateSEODescription(formData.description);
-    
+
     setFormData(prev => ({
       ...prev,
       seo: {
@@ -336,10 +336,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
       {/* Informações Básicas */}
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Informações do Produto</h2>
-          <p className="text-gray-600 mt-1">Preencha as informações básicas do produto</p>
+        <div className="space-y-2 md:space-y-3">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">
+            Informações do Produto
+          </h2>
+
+          <p className="text-gray-600 text-sm md:text-base">
+            Preencha as informações básicas para cadastrar o produto.
+          </p>
         </div>
+
 
         {/* Seleção de Loja */}
         <div className="space-y-2">
@@ -436,30 +442,37 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
       {/* Variações e Preços */}
       <div className="space-y-6 pt-8 border-t">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Variações e Preços</h2>
             <p className="text-gray-600 mt-1">
               Configure as opções de variação, preços e estoque
             </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-600">
+
+          {/* Estoque Total */}
+          <div className="flex items-center">
+            <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-md border">
               Estoque Total: <strong>{totalStock}</strong> unidades
-            </div>
+            </span>
           </div>
         </div>
 
-        {/* Checkbox para variações */}
-        <div className="flex items-center space-x-3">
+        {/* Checkbox - responsivo e bonito */}
+        <div className="mt-4 flex items-start md:items-center gap-3">
           <input
             type="checkbox"
             id="hasVariants"
             checked={formData.hasVariants}
             onChange={toggleVariants}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            className="w-5 h-5 text-blue-600 border-gray-300 rounded 
+               focus:ring-blue-500 cursor-pointer"
           />
-          <label htmlFor="hasVariants" className="text-sm font-medium text-gray-900">
+
+          <label
+            htmlFor="hasVariants"
+            className="text-sm font-medium text-gray-900 leading-5 cursor-pointer"
+          >
             Este produto tem variações (tamanhos, cores, etc.)
           </label>
         </div>
@@ -533,17 +546,15 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
               {/* Indicadores de Otimização */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`p-3 rounded-lg border ${
-                  seoOptimization.title.isValid ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
-                }`}>
+                <div className={`p-3 rounded-lg border ${seoOptimization.title.isValid ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                  }`}>
                   <div className="text-sm font-medium mb-1">Título SEO</div>
                   <div className={`text-xs ${seoOptimization.title.isValid ? 'text-green-700' : 'text-yellow-700'}`}>
                     {formData.seo.title.length}/60 caracteres • {seoOptimization.title.message}
                   </div>
                 </div>
-                <div className={`p-3 rounded-lg border ${
-                  seoOptimization.description.isValid ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
-                }`}>
+                <div className={`p-3 rounded-lg border ${seoOptimization.description.isValid ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                  }`}>
                   <div className="text-sm font-medium mb-1">Descrição SEO</div>
                   <div className={`text-xs ${seoOptimization.description.isValid ? 'text-green-700' : 'text-yellow-700'}`}>
                     {formData.seo.description.length}/160 caracteres • {seoOptimization.description.message}

@@ -6,6 +6,7 @@ export interface Store {
   slug: string;
   name: string;
   description?: string;
+  document?: string; // ✅ NOVO: CNPJ da loja
   theme: StoreTheme;
   contact: StoreContact;
   settings: StoreSettings;
@@ -20,7 +21,7 @@ export interface StoreTheme {
   backgroundColor: string;
   textColor: string;
   fontFamily: string;
-  logo?: string;
+  logo?: string; // ✅ Já existe para upload da logo
 }
 
 export interface StoreContact {
@@ -28,8 +29,19 @@ export interface StoreContact {
   phone?: string;
   whatsapp?: string;
   instagram?: string;
-  address?: string;
+  address?: StoreAddress; // ✅ ATUALIZADO: Agora é um objeto de endereço
   pixKeys?: PixKey[];
+}
+
+// ✅ NOVO: Interface para endereço completo
+export interface StoreAddress {
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
 }
 
 export interface PixKey {
@@ -47,7 +59,7 @@ export interface StoreSettings {
   orderConfirmationMessage?: string;
   maintenanceMode: boolean;
   pixSettings: PixSettings;
-  shippingSettings: ShippingSettings; // ✅ NOVO
+  shippingSettings: ShippingSettings;
 }
 
 export interface PixSettings {
@@ -60,10 +72,14 @@ export interface CreateStoreData {
   name: string;
   slug: string;
   description?: string;
+  document?: string; // ✅ NOVO: CNPJ
   primaryColor?: string;
   secondaryColor?: string;
+  logo?: string; // ✅ NOVO: URL da logo
+  contact?: Partial<StoreContact>; // ✅ ATUALIZADO: Incluir contato inicial
 }
 
+// ... (as outras interfaces permanecem iguais)
 export interface ShippingSettings {
   enabled: boolean;
   calculationMethod: 'fixed' | 'regional_table' | 'weight_based' | 'free';
@@ -85,8 +101,8 @@ export interface ShippingRegion {
 
 export interface WeightBasedRate {
   id: string;
-  minWeight: number; // em kg
-  maxWeight: number; // em kg
+  minWeight: number;
+  maxWeight: number;
   price: number;
 }
 

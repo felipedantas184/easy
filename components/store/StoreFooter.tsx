@@ -61,7 +61,7 @@ export function StoreFooter() {
 
   return (
     <>
-      <footer 
+      <footer
         className="bg-gradient-to-br from-gray-900 to-gray-800 text-white relative overflow-hidden"
       >
         {/* Background Pattern */}
@@ -74,20 +74,20 @@ export function StoreFooter() {
 
         <div className="container mx-auto px-4 py-12 relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
-            
+
             {/* Brand Section */}
             <div className="md:col-span-1 space-y-4">
               <div className="flex items-center space-x-3">
                 {store.theme.logo ? (
-                  <img 
-                    src={store.theme.logo} 
+                  <img
+                    src={store.theme.logo}
                     alt={store.name}
                     className="h-10 w-10 object-contain"
                   />
                 ) : (
-                  <div 
+                  <div
                     className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
-                    style={{ 
+                    style={{
                       backgroundColor: store.theme.primaryColor,
                       background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
                     }}
@@ -99,48 +99,48 @@ export function StoreFooter() {
                   {store.name}
                 </h3>
               </div>
-              
+
               {store.description && (
                 <p className="text-gray-300 text-sm leading-relaxed">
                   {store.description}
                 </p>
               )}
-              
+
               {/* Social Links */}
               <div className="flex space-x-3 pt-2">
                 {store.contact.instagram && (
-                  <a 
+                  <a
                     href={`https://instagram.com/${store.contact.instagram}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-all duration-300 hover:scale-110 hover:shadow-lg group"
-                    style={{ 
+                    style={{
                       background: `linear-gradient(135deg, ${store.theme.primaryColor}15 0%, ${store.theme.secondaryColor}15 100%)`
                     }}
                   >
                     <Instagram size={18} className="text-gray-300 group-hover:text-white" />
                   </a>
                 )}
-                
+
                 {store.contact.whatsapp && (
-                  <a 
+                  <a
                     href={`https://wa.me/${store.contact.whatsapp}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-all duration-300 hover:scale-110 hover:shadow-lg group"
-                    style={{ 
+                    style={{
                       background: `linear-gradient(135deg, ${store.theme.primaryColor}15 0%, ${store.theme.secondaryColor}15 100%)`
                     }}
                   >
                     <MessageCircle size={18} className="text-gray-300 group-hover:text-white" />
                   </a>
                 )}
-                
+
                 {store.contact.email && (
-                  <a 
+                  <a
                     href={`mailto:${store.contact.email}`}
                     className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-all duration-300 hover:scale-110 hover:shadow-lg group"
-                    style={{ 
+                    style={{
                       background: `linear-gradient(135deg, ${store.theme.primaryColor}15 0%, ${store.theme.secondaryColor}15 100%)`
                     }}
                   >
@@ -154,7 +154,7 @@ export function StoreFooter() {
             <div className="space-y-4">
               <h4 className="text-lg font-semibold text-white">Navegação</h4>
               <div className="space-y-2 text-sm">
-                <Link 
+                <Link
                   href={`/${store.slug}`}
                   className="text-gray-300 hover:text-white transition-colors block py-1"
                 >
@@ -198,7 +198,7 @@ export function StoreFooter() {
                 {store.contact.email && (
                   <div className="flex items-start space-x-3">
                     <Mail size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                    <a 
+                    <a
                       href={`mailto:${store.contact.email}`}
                       className="text-gray-300 hover:text-white transition-colors"
                     >
@@ -206,11 +206,11 @@ export function StoreFooter() {
                     </a>
                   </div>
                 )}
-                
+
                 {store.contact.phone && (
                   <div className="flex items-start space-x-3">
                     <Phone size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                    <a 
+                    <a
                       href={`tel:${store.contact.phone}`}
                       className="text-gray-300 hover:text-white transition-colors"
                     >
@@ -218,24 +218,27 @@ export function StoreFooter() {
                     </a>
                   </div>
                 )}
-                
+
                 {store.contact.address && (
                   <div className="flex items-start space-x-3">
                     <MapPin size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+
                     <span className="text-gray-300">
-                      {store.contact.address}
+                      {`
+                        ${store.contact.address.street}, ${store.contact.address.number}, ${store.contact.address.neighborhood} - ${store.contact.address.city}, ${store.contact.address.state}
+                      `}
                     </span>
                   </div>
                 )}
 
                 {/* WhatsApp Direct */}
                 {store.contact.whatsapp && (
-                  <a 
+                  <a
                     href={`https://wa.me/${store.contact.whatsapp}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 hover:shadow-lg mt-2"
-                    style={{ 
+                    style={{
                       backgroundColor: store.theme.primaryColor,
                       background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
                     }}
@@ -258,7 +261,7 @@ export function StoreFooter() {
                 Desenvolvido com ❤️ usando <strong>Easy Platform</strong>
               </p>
             </div>
-            
+
             {/* Payment Methods Icons */}
             <div className="flex items-center space-x-4 text-gray-400">
               <div className="text-xs">Métodos de pagamento:</div>
@@ -277,7 +280,7 @@ export function StoreFooter() {
         <Button
           onClick={scrollToTop}
           className="fixed bottom-6 right-6 w-12 h-12 rounded-full shadow-lg z-50 animate-in fade-in duration-300"
-          style={{ 
+          style={{
             backgroundColor: store.theme.primaryColor,
             background: `linear-gradient(135deg, ${store.theme.primaryColor} 0%, ${store.theme.secondaryColor} 100%)`
           }}

@@ -25,13 +25,18 @@ export const storeServiceNew = {
       slug: storeData.slug,
       name: storeData.name,
       description: storeData.description,
+      document: storeData.document, // ✅ NOVO: CNPJ
       theme: {
         ...DEFAULT_STORE_THEME,
         primaryColor: storeData.primaryColor || DEFAULT_STORE_THEME.primaryColor,
         secondaryColor: storeData.secondaryColor || DEFAULT_STORE_THEME.secondaryColor,
+        logo: storeData.logo || undefined, // ✅ NOVO: Logo
       },
       contact: {
-        email: '',
+        email: storeData.contact?.email || '', // ✅ ATUALIZADO: Usar email do formulário
+        phone: storeData.contact?.phone,
+        whatsapp: storeData.contact?.whatsapp,
+        address: storeData.contact?.address, // ✅ NOVO: Endereço
         pixKeys: [],
       },
       settings: {
@@ -42,7 +47,7 @@ export const storeServiceNew = {
           expirationTime: 30,
           allowMultipleKeys: true,
         },
-        shippingSettings: shippingService.getDefaultShippingSettings(), // ✅ NOVO
+        shippingSettings: shippingService.getDefaultShippingSettings(),
       },
       isActive: true,
       createdAt: serverTimestamp() as any,
@@ -53,7 +58,7 @@ export const storeServiceNew = {
     return docRef.id;
   },
 
-  // Buscar loja por ID
+  // ... (os outros métodos permanecem iguais)
   async getStore(storeId: string): Promise<Store | null> {
     const docRef = doc(db, 'stores', storeId);
     const docSnap = await getDoc(docRef);
@@ -70,7 +75,6 @@ export const storeServiceNew = {
     return null;
   },
 
-  // Buscar loja por slug
   async getStoreBySlug(slug: string): Promise<Store | null> {
     try {
       const q = query(
@@ -100,7 +104,6 @@ export const storeServiceNew = {
     }
   },
 
-  // Buscar lojas do usuário
   async getUserStores(ownerId: string): Promise<Store[]> {
     try {
       const q = query(
@@ -125,7 +128,6 @@ export const storeServiceNew = {
     }
   },
 
-  // Atualizar loja
   async updateStore(storeId: string, updates: Partial<Store>): Promise<void> {
     const docRef = doc(db, 'stores', storeId);
     await updateDoc(docRef, {
@@ -134,7 +136,6 @@ export const storeServiceNew = {
     });
   },
 
-  // Deletar loja (soft delete)
   async deleteStore(storeId: string): Promise<void> {
     const docRef = doc(db, 'stores', storeId);
     await updateDoc(docRef, {
@@ -143,7 +144,6 @@ export const storeServiceNew = {
     });
   },
 
-  // Verificar se slug está disponível
   async isSlugAvailable(slug: string): Promise<boolean> {
     const q = query(
       collection(db, 'stores'),
@@ -155,14 +155,10 @@ export const storeServiceNew = {
     return querySnapshot.empty;
   },
 
-  /**
-   * Atualizar configurações de frete da loja
-   */
   async updateShippingSettings(storeId: string, shippingSettings: ShippingSettings): Promise<void> {
     try {
       const storeRef = doc(db, 'stores', storeId);
 
-      // Validar configurações antes de salvar
       const validation = shippingService.validateShippingSettings(shippingSettings);
       if (!validation.isValid) {
         throw new Error(`Configurações de frete inválidas: ${validation.errors.join(', ')}`);
@@ -178,9 +174,6 @@ export const storeServiceNew = {
     }
   },
 
-  /**
-   * Obter configurações de frete da loja
-   */
   async getShippingSettings(storeId: string): Promise<ShippingSettings> {
     try {
       const store = await this.getStore(storeId);
